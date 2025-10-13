@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bejelentkezés / Regisztráció – SmartMarket</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-50 p-6">
+  <div class="max-w-md mx-auto bg-white rounded-2xl shadow p-6 border border-gray-100">
+    <h1 class="text-2xl font-bold mb-4">Bejelentkezés / Regisztráció</h1>
+    <input id="email" type="email" placeholder="Email" class="border p-2 rounded w-full mb-2">
+    <input id="password" type="password" placeholder="Jelszó" class="border p-2 rounded w-full mb-3">
+    <div class="flex gap-2">
+      <button id="btnSignIn" class="bg-blue-600 text-white px-4 py-2 rounded">Bejelentkezés</button>
+      <button id="btnSignUp" class="bg-green-600 text-white px-4 py-2 rounded">Regisztráció</button>
+    </div>
+    <p id="msg" class="mt-2 text-sm"></p>
+  </div>
+<script>
+const supabase = window.supabase.createClient("https://bxtpnotswnwrbycvfypz.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4dHBub3Rzd253cmJ5Y3ZmeXB6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI5MTQ0NDcsImV4cCI6MjA2ODQ5MDQ0N30.CXEfo_8qmIYhkEZFdTsbl9ZB-PRTP6UK8EbIxxpSGZc");
+document.getElementById('btnSignUp').onclick = async () => {
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+  const { error } = await supabase.auth.signUp({ email, password });
+  document.getElementById('msg').textContent = error ? error.message : "✅ Regisztráció sikeres. Ellenőrizd az emailed.";
+};
+document.getElementById('btnSignIn').onclick = async () => {
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  document.getElementById('msg').textContent = error ? error.message : "✅ Bejelentkezve. Vissza a főoldalra.";
+};
+</script>
+</body>
+</html>
