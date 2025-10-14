@@ -8,9 +8,6 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script defer src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script defer src="config.js"></script>
-  <script defer src="assets/gemini.js"></script>
-  <script defer src="assets/supabase.js"></script>
-  <script defer src="assets/app.js"></script>
   <style>
     body {
       background: linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%);
@@ -103,7 +100,7 @@
         <div>
           <label class="block text-sm mb-1">Képek (max 3)</label>
           <input type="file" id="images" accept="image/*" multiple>
-          <p class="text-xs text-gray-500 mt-1">A képek Supabase Storage-ba kerülnek (bucket: hirdetes-kepek).</p>
+          <p class="text-xs text-gray-500 mt-1">A képek Supabase Storage-ba kerülnek.</p>
         </div>
 
         <!-- ✨ Gemini AI -->
@@ -156,12 +153,12 @@
     <p>© 2025 SmartMarket v2 · Supabase + Gemini AI · Közösségi piactér</p>
   </footer>
 
-  <!-- Supabase Auth session -->
+  <!-- 🔐 Supabase Auth kezelés -->
   <script>
-    document.addEventListener("DOMContentLoaded", async () => {
-      const { createClient } = supabase;
-      const supa = createClient(window.__CONFIG__.SUPABASE_URL, window.__CONFIG__.SUPABASE_ANON_KEY);
+    const { createClient } = supabase;
+    const supa = createClient(window.__CONFIG__.SUPABASE_URL, window.__CONFIG__.SUPABASE_ANON_KEY);
 
+    document.addEventListener("DOMContentLoaded", async () => {
       const { data: { session } } = await supa.auth.getSession();
       const loginLink = document.getElementById("loginLink");
       const logoutBtn = document.getElementById("logoutBtn");
@@ -178,6 +175,45 @@
         loginLink.textContent = "Bejelentkezés / Regisztráció";
         loginLink.href = "auth.html";
         logoutBtn.classList.add("hidden");
+      }
+    });
+  </script>
+
+  <!-- 🤖 Gemini AI hirdetés generálás -->
+  <script>
+    const aiBtn = document.getElementById("aiSuggest");
+    const aiLoading = document.getElementById("aiLoading");
+    const titleInput = document.getElementById("title");
+    const descInput = document.getElementById("description");
+
+    aiBtn.addEventListener("click", async () => {
+      const prompt = `Írj egy vonzó hirdetés leírást a következő termékről: ${titleInput.value}`;
+      if (!titleInput.value.trim()) {
+        alert("Előbb adj meg egy címet a hirdetéshez!");
+        return;
+      }
+
+      aiLoading.classList.remove("hidden");
+
+      try {
+        const res = await fetch(
+          "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + window.__CONFIG__.GEMINI_KEY,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }]
+            })
+          }
+        );
+
+        const data = await res.json();
+        descInput.value = data.candidates[0].content.parts[0].text;
+      } catch (err) {
+        alert("Hiba történt a Gemini AI híváskor.");
+        console.error(err);
+      } finally {
+        aiLoading.classList.add("hidden");
       }
     });
   </script>
