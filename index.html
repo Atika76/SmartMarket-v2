@@ -6,7 +6,10 @@
   <title>SmartMarket v2 – Piactér</title>
   <meta name="description" content="Közösségi piactér Supabase Auth + DB + Storage + Gemini AI hirdetés generálóval.">
   <script src="https://cdn.tailwindcss.com"></script>
-  <script defer src="https://unpkg.com/@supabase/supabase-js@2"></script>
+
+  <!-- ⚡ Supabase SDK betöltése először -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <!-- ⚙️ Saját config.js -->
   <script defer src="./config.js"></script>
 
   <style>
@@ -108,7 +111,7 @@
       </form>
     </section>
 
-    <!-- LISTA + SZŰRŐK -->
+    <!-- LISTA -->
     <section class="lg:col-span-2 space-y-6">
       <div class="glass rounded-2xl shadow-lg p-5 border border-gray-200">
         <div class="flex flex-col md:flex-row md:items-end gap-4">
@@ -152,7 +155,7 @@
     const supa = createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
     const BUCKET = cfg.BUCKET || 'hirdetes-kepek';
 
-    // --- Auth állapot ---
+    // --- Auth ---
     document.addEventListener('DOMContentLoaded', async () => {
       const { data: { session } } = await supa.auth.getSession();
       const loginLink = document.getElementById('loginLink');
@@ -285,7 +288,7 @@
       }
     });
 
-    // --- Gemini AI integráció (EDGE FUNCTION) ---
+    // --- Gemini AI integráció ---
     const aiBtn = document.getElementById('aiSuggest');
     const aiLoading = document.getElementById('aiLoading');
     const titleInput = document.getElementById('title');
@@ -306,15 +309,13 @@
           {
             method:'POST',
             headers:{ 'Content-Type':'application/json' },
-            body: JSON.stringify({ 
-              contents: [ { parts: [ { text: prompt } ] } ] 
-            })
+            body: JSON.stringify({ prompt })
           }
         );
 
         if (!res.ok) throw new Error('Gemini proxy hiba');
         const data = await res.json();
-        const txt = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        const txt = data?.text || data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
         if (txt) descInput.value = txt;
         else alert('Nem érkezett válasz a Geminitől.');
       } catch (err) {
