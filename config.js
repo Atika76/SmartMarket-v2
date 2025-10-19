@@ -9,6 +9,6 @@ window.__CONFIG__ = {
   // 🤖 Gemini AI kulcs (Generative Language API)
   GEMINI_KEY: "AIzaSyC8-cu3m5T6pOZGQjwgnM4yFWac0-qNbCU",
 
-  // 🌐 Edge Function URL — EZ HIÁNYZOTT!
+  // 🌐 Edge Function URL (gemini-proxy)
   EDGE_FUNCTION_URL: "https://mvtjyxyzdwfngzucbwoy.supabase.co/functions/v1/gemini-proxy"
 };
