@@ -3,332 +3,61 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SmartMarket v2 – Piactér</title>
-  <meta name="description" content="Közösségi piactér Supabase Auth + DB + Storage + Gemini AI hirdetés generálóval.">
+  <title>SmartMarket v2</title>
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- ⚡ Supabase SDK betöltése először -->
-  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-  <!-- ⚙️ Saját config.js -->
+  <script defer src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script defer src="./config.js"></script>
-
-  <style>
-    :root{
-      --primary:#5b7cfa;
-      --primary-2:#7c3aed;
-    }
-    body{
-      background: radial-gradient(1400px 600px at 20% 0%, #eff6ff 0%, #eef2ff 40%, #f8fafc 100%);
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-    }
-    header{ backdrop-filter: blur(10px); }
-    .glass{ background: rgba(255,255,255,.82); backdrop-filter: blur(10px); }
-    .btn{
-      display:inline-flex; align-items:center; justify-content:center;
-      padding:.65rem 1rem; border-radius: .9rem; font-weight:600; transition:.25s;
-    }
-    .btn-primary{ color:#fff; background: linear-gradient(90deg, var(--primary), var(--primary-2)); }
-    .btn-primary:hover{ filter:brightness(.95); transform:translateY(-1px); }
-    .btn-outline{ border:2px solid var(--primary); color: var(--primary); }
-    .btn-outline:hover{ background:var(--primary); color:#fff; }
-    .chip{ padding:.2rem .55rem; border-radius:9999px; font-size:.72rem; background:#eef2ff; color:#4338ca; }
-  </style>
+  <script defer src="./app.js"></script>
 </head>
-<body class="text-gray-900 min-h-screen flex flex-col">
-
-  <!-- FEJLÉC -->
-  <header class="sticky top-0 z-20 glass border-b border-gray-200">
-    <div class="max-w-7xl mx-auto px-4 py-3 flex gap-4 items-center">
-      <div class="flex items-center gap-2">
-        <span class="inline-flex w-8 h-8 rounded-xl bg-violet-600/90 text-white items-center justify-center font-bold">SM</span>
-        <h1 class="text-xl font-bold text-violet-700">SmartMarket <span class="text-gray-400 text-base">v2</span></h1>
-        <span class="chip ml-2 hidden sm:inline-flex">Beta</span>
-      </div>
-      <nav class="ml-auto flex gap-3 items-center" id="authLinks">
-        <a href="./auth.html" id="loginLink" class="underline">Bejelentkezés / Regisztráció</a>
-        <button id="logoutBtn" class="hidden btn btn-outline text-sm">Kijelentkezés</button>
-      </nav>
+<body class="bg-gray-50">
+  <header class="p-4 bg-white shadow flex justify-between items-center">
+    <h1 class="font-bold text-violet-700 text-xl">SmartMarket v2</h1>
+    <div>
+      <a href="./auth.html" id="loginLink" class="underline mr-2">Bejelentkezés</a>
+      <button id="logoutBtn" class="hidden border border-violet-600 rounded px-2 py-1 text-violet-600">Kijelentkezés</button>
     </div>
   </header>
-
-  <main class="max-w-7xl mx-auto px-4 py-8 grid lg:grid-cols-3 gap-8 w-full">
-
-    <!-- ÚJ HIRDETÉS -->
-    <section class="glass rounded-2xl shadow-lg p-6 border border-gray-200">
-      <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">📝 Új hirdetés</h2>
-
-      <form id="adForm" class="space-y-4">
-        <div>
-          <label class="block text-sm mb-1">Cím *</label>
-          <input type="text" id="title" required class="w-full rounded-lg border-gray-300" placeholder="Pl. iPhone 13, 128 GB, hibátlan">
-        </div>
-
-        <div>
-          <label class="block text-sm mb-1">Leírás *</label>
-          <textarea id="description" required class="w-full rounded-lg border-gray-300" rows="4" placeholder="Rövid leírás..."></textarea>
-        </div>
-
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm mb-1">Kategória *</label>
-            <select id="category" required class="w-full rounded-lg border-gray-300">
-              <option value="">Válassz...</option>
-              <option>Elektronika</option><option>Divat</option><option>Bútor</option>
-              <option>Szolgáltatás</option><option>Jármű</option><option>Ingatlan</option>
-              <option>Gyerek/Játék</option><option>Egyéb</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-sm mb-1">Ár (Ft)</label>
-            <input type="number" id="price" min="0" step="1" class="w-full rounded-lg border-gray-300" placeholder="59900">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm mb-1">Telefonszám (opcionális)</label>
-            <input type="tel" id="phone" class="w-full rounded-lg border-gray-300" placeholder="+36 30 123 4567">
-          </div>
-          <div>
-            <label class="block text-sm mb-1">Weboldal (opcionális)</label>
-            <input type="url" id="website" class="w-full rounded-lg border-gray-300" placeholder="https://...">
-          </div>
-        </div>
-
-        <div>
-          <label class="block text-sm mb-1">Képek (max 3)</label>
-          <input type="file" id="images" accept="image/*" multiple>
-          <p class="text-xs text-gray-500 mt-1">A képek a Supabase Storage-ba kerülnek (bucket: <b>hirdetes-kepek</b>).</p>
-        </div>
-
-        <div class="space-y-2">
-          <button type="button" id="aiSuggest" class="btn btn-outline w-full">🤖 AI hirdetés generálása (Gemini)</button>
-          <p id="aiLoading" class="hidden text-sm text-blue-600">Gemini: generálás folyamatban…</p>
-        </div>
-
-        <button type="submit" class="btn btn-primary w-full">Hirdetés közzététele</button>
-        <p id="adFormMsg" class="text-sm mt-2"></p>
+  <main class="max-w-6xl mx-auto p-4 grid lg:grid-cols-3 gap-6">
+    <section class="bg-white p-4 rounded-xl shadow space-y-3">
+      <h2 class="text-lg font-semibold">Új hirdetés</h2>
+      <form id="adForm" class="space-y-2">
+        <input id="title" placeholder="Cím *" required class="w-full border rounded p-2">
+        <textarea id="description" placeholder="Leírás *" required class="w-full border rounded p-2"></textarea>
+        <select id="category" required class="w-full border rounded p-2">
+          <option value="">Válassz...</option>
+          <option>Elektronika</option><option>Divat</option><option>Bútor</option>
+          <option>Szolgáltatás</option><option>Jármű</option><option>Ingatlan</option>
+          <option>Gyerek/Játék</option><option>Egyéb</option>
+        </select>
+        <input id="price" type="number" placeholder="Ár (Ft)" class="w-full border rounded p-2">
+        <input id="phone" placeholder="Telefonszám" class="w-full border rounded p-2">
+        <input id="website" placeholder="Weboldal" class="w-full border rounded p-2">
+        <input id="images" type="file" accept="image/*" multiple class="w-full">
+        <button type="button" id="aiSuggest" class="w-full border border-violet-600 text-violet-600 rounded py-2">🤖 AI hirdetés generálása</button>
+        <p id="aiLoading" class="hidden text-center text-blue-600 text-sm">Gemini generálás...</p>
+        <button type="submit" class="w-full bg-violet-600 text-white rounded py-2">Mentés</button>
+        <p id="adFormMsg" class="text-sm"></p>
       </form>
     </section>
-
-    <!-- LISTA -->
-    <section class="lg:col-span-2 space-y-6">
-      <div class="glass rounded-2xl shadow-lg p-5 border border-gray-200">
-        <div class="flex flex-col md:flex-row md:items-end gap-4">
-          <div class="flex-1">
-            <label class="block text-sm mb-1">Keresés</label>
-            <input id="q" type="search" class="w-full rounded-lg border-gray-300" placeholder="kulcsszó…">
-          </div>
-          <div>
-            <label class="block text-sm mb-1">Kategória</label>
-            <select id="filterCategory" class="w-full rounded-lg border-gray-300">
-              <option value="">Összes</option>
-              <option>Elektronika</option><option>Divat</option><option>Bútor</option>
-              <option>Szolgáltatás</option><option>Jármű</option><option>Ingatlan</option>
-              <option>Gyerek/Játék</option><option>Egyéb</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-sm mb-1">Rendezés</label>
-            <select id="sortBy" class="w-full rounded-lg border-gray-300">
-              <option value="date_desc">Legújabb</option>
-              <option value="price_asc">Ár ↑</option>
-              <option value="price_desc">Ár ↓</option>
-            </select>
-          </div>
-          <button id="searchBtn" class="btn btn-outline px-6">Keresés</button>
-        </div>
+    <section class="lg:col-span-2 space-y-4">
+      <div class="bg-white p-4 rounded-xl shadow flex flex-wrap gap-3">
+        <input id="q" placeholder="Keresés..." class="border rounded p-2 flex-1 min-w-[150px]">
+        <select id="filterCategory" class="border rounded p-2">
+          <option value="">Összes</option>
+          <option>Elektronika</option><option>Divat</option><option>Bútor</option>
+          <option>Szolgáltatás</option><option>Jármű</option><option>Ingatlan</option>
+          <option>Gyerek/Játék</option><option>Egyéb</option>
+        </select>
+        <select id="sortBy" class="border rounded p-2">
+          <option value="date_desc">Legújabb</option>
+          <option value="price_asc">Ár ↑</option>
+          <option value="price_desc">Ár ↓</option>
+        </select>
+        <button id="searchBtn" class="border border-violet-600 text-violet-600 rounded px-4 py-2">Keresés</button>
       </div>
-
-      <div id="list" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
-      <p id="emptyState" class="text-center text-gray-500 hidden">Nincs találat a megadott feltételekkel.</p>
+      <div id="list" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      <p id="emptyState" class="hidden text-center text-gray-500">Nincs találat.</p>
     </section>
   </main>
-
-  <footer class="max-w-7xl mx-auto px-4 py-8 text-center text-sm text-gray-600">
-    © 2025 SmartMarket v2 · Supabase + Gemini AI · Közösségi piactér
-  </footer>
-
-  <script>
-    const { createClient } = supabase;
-    const cfg = window.__CONFIG__;
-    const supa = createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
-    const BUCKET = cfg.BUCKET || 'hirdetes-kepek';
-
-    // --- Auth ---
-    document.addEventListener('DOMContentLoaded', async () => {
-      const { data: { session } } = await supa.auth.getSession();
-      const loginLink = document.getElementById('loginLink');
-      const logoutBtn = document.getElementById('logoutBtn');
-
-      if (session) {
-        loginLink.textContent = session.user.email;
-        loginLink.href = '#';
-        logoutBtn.classList.remove('hidden');
-        logoutBtn.addEventListener('click', async () => {
-          await supa.auth.signOut();
-          location.reload();
-        });
-      } else {
-        loginLink.textContent = 'Bejelentkezés / Regisztráció';
-        loginLink.href = './auth.html';
-        logoutBtn.classList.add('hidden');
-      }
-    });
-
-    // --- Lista betöltése ---
-    async function loadList() {
-      const listEl = document.getElementById('list');
-      const emptyEl = document.getElementById('emptyState');
-      listEl.innerHTML = '';
-
-      let q = document.getElementById('q').value.trim();
-      let cat = document.getElementById('filterCategory').value;
-      let sort = document.getElementById('sortBy').value;
-
-      let query = supa.from('hirdetesek').select('*');
-
-      if (q) query = query.or(`cim.ilike.%${q}%,leiras.ilike.%${q}%`);
-      if (cat) query = query.eq('kategoria', cat);
-
-      if (sort === 'price_asc') query = query.order('ar', { ascending: true });
-      else if (sort === 'price_desc') query = query.order('ar', { ascending: false });
-      else query = query.order('created_at', { ascending: false });
-
-      const { data, error } = await query.limit(60);
-      if (error || !data || data.length === 0) {
-        emptyEl.classList.remove('hidden');
-        emptyEl.textContent = error ? 'Hiba a lista betöltésekor.' : 'Nincs találat.';
-        return;
-      }
-
-      emptyEl.classList.add('hidden');
-      for (const ad of data) {
-        const pics = Array.isArray(ad.kepek) ? ad.kepek : [];
-        const cover = pics[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=1200&auto=format&fit=crop';
-        const price = ad.ar ? new Intl.NumberFormat('hu-HU').format(ad.ar) + ' Ft' : '–';
-
-        const card = document.createElement('article');
-        card.className = 'rounded-2xl overflow-hidden bg-white shadow border border-gray-100 flex flex-col';
-        card.innerHTML = `
-          <div class="h-40 w-full bg-gray-100">
-            <img src="${cover}" alt="" class="w-full h-full object-cover">
-          </div>
-          <div class="p-4 flex-1 flex flex-col gap-2">
-            <div class="text-xs text-violet-700 font-semibold">${ad.kategoria || '—'}</div>
-            <h3 class="font-semibold line-clamp-2">${ad.cim}</h3>
-            <p class="text-sm text-gray-600 line-clamp-3">${ad.leiras || ''}</p>
-            <div class="mt-auto flex items-center justify-between">
-              <div class="font-semibold text-violet-700">${price}</div>
-              <a class="text-sm underline" href="${ad.weboldal || '#'}" target="_blank" rel="noopener">${ad.weboldal ? 'Weboldal' : ''}</a>
-            </div>
-          </div>`;
-        listEl.appendChild(card);
-      }
-    }
-
-    document.getElementById('searchBtn').addEventListener('click', loadList);
-    ['q','filterCategory','sortBy'].forEach(id=>{
-      document.getElementById(id).addEventListener('change', loadList);
-    });
-
-    // --- Képfeltöltés ---
-    async function uploadImagesAndGetUrls(files) {
-      const urls = [];
-      const max = Math.min(files.length, 3);
-      for (let i=0; i<max; i++) {
-        const f = files[i];
-        const key = `ad-${Date.now()}-${Math.random().toString(36).slice(2)}-${f.name}`;
-        const { data, error } = await supa.storage.from(BUCKET).upload(key, f, { upsert: false });
-        if (error) throw error;
-        const { data:pub } = supa.storage.from(BUCKET).getPublicUrl(data.path);
-        if (pub?.publicUrl) urls.push(pub.publicUrl);
-      }
-      return urls;
-    }
-
-    // --- Hirdetés mentése ---
-    document.getElementById('adForm').addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const msg = document.getElementById('adFormMsg');
-      msg.textContent = 'Mentés...';
-
-      const title = document.getElementById('title').value.trim();
-      const desc = document.getElementById('description').value.trim();
-      const cat  = document.getElementById('category').value;
-      const price= document.getElementById('price').value ? parseInt(document.getElementById('price').value) : null;
-      const phone= document.getElementById('phone').value.trim() || null;
-      const web  = document.getElementById('website').value.trim() || null;
-      const files= document.getElementById('images').files;
-
-      try{
-        let picUrls = [];
-        if (files && files.length>0) {
-          picUrls = await uploadImagesAndGetUrls(files);
-        }
-
-        const { error } = await supa.from('hirdetesek').insert({
-          cim: title,
-          leiras: desc,
-          kategoria: cat,
-          ar: price,
-          telefon: phone,
-          weboldal: web,
-          kepek: picUrls
-        });
-
-        if (error) throw error;
-        msg.className = 'text-sm mt-2 text-green-600';
-        msg.textContent = 'Sikeresen mentve!';
-        (e.target).reset();
-        loadList();
-      }catch(err){
-        msg.className = 'text-sm mt-2 text-red-600';
-        msg.textContent = 'Hiba: ' + err.message;
-      }
-    });
-
-    // --- Gemini AI integráció ---
-    const aiBtn = document.getElementById('aiSuggest');
-    const aiLoading = document.getElementById('aiLoading');
-    const titleInput = document.getElementById('title');
-    const descInput  = document.getElementById('description');
-
-    aiBtn.addEventListener('click', async ()=>{
-      const title = titleInput.value.trim();
-      if (!title) { alert('Előbb adj meg egy címet!'); return; }
-
-      aiLoading.classList.remove('hidden');
-      aiBtn.disabled = true;
-
-      try {
-        const prompt = `Írj rövid, eladható magyar hirdetészöveget ehhez: "${title}". Adj meg kiemelt előnyöket, állapotot, és zárd felhívással. 3-5 mondat.`;
-
-        const res = await fetch(
-          `https://mvtjyxyzdwfngzucbwoy.supabase.co/functions/v1/gemini-proxy`,
-          {
-            method:'POST',
-            headers:{ 'Content-Type':'application/json' },
-            body: JSON.stringify({ prompt })
-          }
-        );
-
-        if (!res.ok) throw new Error('Gemini proxy hiba');
-        const data = await res.json();
-        const txt = data?.text || data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-        if (txt) descInput.value = txt;
-        else alert('Nem érkezett válasz a Geminitől.');
-      } catch (err) {
-        console.error(err);
-        alert('Hiba történt a Gemini AI hívásakor.');
-      } finally {
-        aiLoading.classList.add('hidden');
-        aiBtn.disabled = false;
-      }
-    });
-
-    // első betöltés
-    loadList();
-  </script>
 </body>
 </html>
