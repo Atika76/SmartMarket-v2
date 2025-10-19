@@ -1,37 +1,63 @@
 <!DOCTYPE html>
 <html lang="hu">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bejelentkezés / Regisztráció – SmartMarket</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SmartMarket v2 – Bejelentkezés</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script defer src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script defer src="./config.js"></script>
 </head>
-<body class="bg-gray-50 p-6">
-  <div class="max-w-md mx-auto bg-white rounded-2xl shadow p-6 border border-gray-100">
-    <h1 class="text-2xl font-bold mb-4">Bejelentkezés / Regisztráció</h1>
-    <input id="email" type="email" placeholder="Email" class="border p-2 rounded w-full mb-2">
-    <input id="password" type="password" placeholder="Jelszó" class="border p-2 rounded w-full mb-3">
-    <div class="flex gap-2">
-      <button id="btnSignIn" class="bg-blue-600 text-white px-4 py-2 rounded">Bejelentkezés</button>
-      <button id="btnSignUp" class="bg-green-600 text-white px-4 py-2 rounded">Regisztráció</button>
-    </div>
-    <p id="msg" class="mt-2 text-sm"></p>
+<body class="min-h-screen bg-gradient-to-br from-indigo-50 to-violet-100 flex items-center justify-center p-4">
+  <div class="w-full max-w-md glass rounded-2xl shadow-lg p-6 border border-gray-200 bg-white/80 backdrop-blur">
+    <h1 class="text-2xl font-bold text-violet-700 mb-6">Bejelentkezés / Regisztráció</h1>
+
+    <form id="authForm" class="space-y-4">
+      <div>
+        <label class="block text-sm mb-1">Email</label>
+        <input id="email" type="email" required class="w-full rounded-lg border-gray-300" placeholder="te@pelda.hu">
+      </div>
+      <div>
+        <label class="block text-sm mb-1">Jelszó</label>
+        <input id="password" type="password" required class="w-full rounded-lg border-gray-300" placeholder="••••••••">
+      </div>
+      <div class="flex gap-3">
+        <button type="button" id="loginBtn" class="btn btn-primary flex-1">Bejelentkezés</button>
+        <button type="button" id="signupBtn" class="btn btn-outline flex-1">Regisztráció</button>
+      </div>
+      <p id="msg" class="text-sm"></p>
+      <a href="./index.html" class="underline text-sm block text-center">Vissza a főoldalra</a>
+    </form>
   </div>
-<script>
-const supabase = window.supabase.createClient("https://bxtpnotswnwrbycvfypz.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ4dHBub3Rzd253cmJ5Y3ZmeXB6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI5MTQ0NDcsImV4cCI6MjA2ODQ5MDQ0N30.CXEfo_8qmIYhkEZFdTsbl9ZB-PRTP6UK8EbIxxpSGZc");
-document.getElementById('btnSignUp').onclick = async () => {
-  const email = document.getElementById('email').value;
-  const password = document.getElementById('password').value;
-  const { error } = await supabase.auth.signUp({ email, password });
-  document.getElementById('msg').textContent = error ? error.message : "✅ Regisztráció sikeres. Ellenőrizd az emailed.";
-};
-document.getElementById('btnSignIn').onclick = async () => {
-  const email = document.getElementById('email').value;
-  const password = document.getElementById('password').value;
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  document.getElementById('msg').textContent = error ? error.message : "✅ Bejelentkezve. Vissza a főoldalra.";
-};
-</script>
+
+  <script>
+    const { createClient } = supabase;
+    const cfg = window.__CONFIG__;
+    const supa = createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+
+    const email = document.getElementById('email');
+    const pass  = document.getElementById('password');
+    const msg   = document.getElementById('msg');
+
+    document.getElementById('loginBtn').addEventListener('click', async ()=>{
+      msg.textContent = 'Bejelentkezés...';
+      const { error } = await supa.auth.signInWithPassword({ email: email.value, password: pass.value });
+      if (error){ msg.textContent = 'Hiba: ' + error.message; msg.className='text-sm text-red-600'; }
+      else { msg.textContent = 'Sikeres bejelentkezés!'; msg.className='text-sm text-green-600'; setTimeout(()=>location.href='./index.html',800); }
+    });
+
+    document.getElementById('signupBtn').addEventListener('click', async ()=>{
+      msg.textContent = 'Regisztráció...';
+      const { error } = await supa.auth.signUp({ email: email.value, password: pass.value, options:{ emailRedirectTo: location.origin + '/SmartMarket-v2/index.html' }});
+      if (error){ msg.textContent = 'Hiba: ' + error.message; msg.className='text-sm text-red-600'; }
+      else { msg.textContent = 'Ha szükséges, megerősítő emailt küldtünk. Jelentkezz be!'; msg.className='text-sm text-green-600'; }
+    });
+  </script>
+
+  <style>
+    .btn{display:inline-flex;align-items:center;justify-content:center;padding:.65rem 1rem;border-radius:.9rem;font-weight:600;transition:.25s}
+    .btn-primary{color:#fff;background:linear-gradient(90deg,#5b7cfa,#7c3aed)}.btn-primary:hover{filter:brightness(.95);transform:translateY(-1px)}
+    .btn-outline{border:2px solid #5b7cfa;color:#5b7cfa}.btn-outline:hover{background:#5b7cfa;color:#fff}
+  </style>
 </body>
 </html>
