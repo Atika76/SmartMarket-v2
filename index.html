@@ -16,7 +16,7 @@
     }
     body{
       background: radial-gradient(1400px 600px at 20% 0%, #eff6ff 0%, #eef2ff 40%, #f8fafc 100%);
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Apple Color Emoji, Segoe UI Emoji;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
     }
     header{ backdrop-filter: blur(10px); }
     .glass{ background: rgba(255,255,255,.82); backdrop-filter: blur(10px); }
@@ -147,13 +147,12 @@
   </footer>
 
   <script>
-    // --- Supabase kliens ---
     const { createClient } = supabase;
     const cfg = window.__CONFIG__;
     const supa = createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
     const BUCKET = cfg.BUCKET || 'hirdetes-kepek';
 
-    // --- Auth állapot a fejlécben ---
+    // --- Auth állapot ---
     document.addEventListener('DOMContentLoaded', async () => {
       const { data: { session } } = await supa.auth.getSession();
       const loginLink = document.getElementById('loginLink');
@@ -174,7 +173,7 @@
       }
     });
 
-    // --- Lista betöltése szűrőkkel ---
+    // --- Lista betöltése ---
     async function loadList() {
       const listEl = document.getElementById('list');
       const emptyEl = document.getElementById('emptyState');
@@ -189,24 +188,18 @@
       if (q) query = query.or(`cim.ilike.%${q}%,leiras.ilike.%${q}%`);
       if (cat) query = query.eq('kategoria', cat);
 
-      if (sort === 'price_asc') query = query.order('ar', { ascending: true, nullsFirst: false });
-      else if (sort === 'price_desc') query = query.order('ar', { ascending: false, nullsFirst: false });
+      if (sort === 'price_asc') query = query.order('ar', { ascending: true });
+      else if (sort === 'price_desc') query = query.order('ar', { ascending: false });
       else query = query.order('created_at', { ascending: false });
 
       const { data, error } = await query.limit(60);
-      if (error) {
+      if (error || !data || data.length === 0) {
         emptyEl.classList.remove('hidden');
-        emptyEl.textContent = 'Hiba a lista betöltésekor: ' + error.message;
+        emptyEl.textContent = error ? 'Hiba a lista betöltésekor.' : 'Nincs találat.';
         return;
       }
 
-      if (!data || data.length === 0) {
-        emptyEl.classList.remove('hidden');
-        emptyEl.textContent = 'Nincs találat a megadott feltételekkel.';
-        return;
-      }
       emptyEl.classList.add('hidden');
-
       for (const ad of data) {
         const pics = Array.isArray(ad.kepek) ? ad.kepek : [];
         const cover = pics[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=1200&auto=format&fit=crop';
@@ -214,7 +207,6 @@
 
         const card = document.createElement('article');
         card.className = 'rounded-2xl overflow-hidden bg-white shadow border border-gray-100 flex flex-col';
-
         card.innerHTML = `
           <div class="h-40 w-full bg-gray-100">
             <img src="${cover}" alt="" class="w-full h-full object-cover">
@@ -227,8 +219,7 @@
               <div class="font-semibold text-violet-700">${price}</div>
               <a class="text-sm underline" href="${ad.weboldal || '#'}" target="_blank" rel="noopener">${ad.weboldal ? 'Weboldal' : ''}</a>
             </div>
-          </div>
-        `;
+          </div>`;
         listEl.appendChild(card);
       }
     }
@@ -238,7 +229,7 @@
       document.getElementById(id).addEventListener('change', loadList);
     });
 
-    // --- Kép feltöltés a Storage-ba és publikus URL kinyerése ---
+    // --- Képfeltöltés ---
     async function uploadImagesAndGetUrls(files) {
       const urls = [];
       const max = Math.min(files.length, 3);
@@ -247,7 +238,6 @@
         const key = `ad-${Date.now()}-${Math.random().toString(36).slice(2)}-${f.name}`;
         const { data, error } = await supa.storage.from(BUCKET).upload(key, f, { upsert: false });
         if (error) throw error;
-
         const { data:pub } = supa.storage.from(BUCKET).getPublicUrl(data.path);
         if (pub?.publicUrl) urls.push(pub.publicUrl);
       }
@@ -295,7 +285,7 @@
       }
     });
 
-    // --- Gemini AI: rövid, eladható leírás generálása ---
+    // --- Gemini AI integráció (EDGE FUNCTION) ---
     const aiBtn = document.getElementById('aiSuggest');
     const aiLoading = document.getElementById('aiLoading');
     const titleInput = document.getElementById('title');
@@ -305,28 +295,34 @@
       const title = titleInput.value.trim();
       if (!title) { alert('Előbb adj meg egy címet!'); return; }
 
-      if (!cfg.GEMINI_KEY) {
-        alert('Gemini API kulcs hiányzik a config.js-ből.');
-        return;
-      }
-
       aiLoading.classList.remove('hidden');
-      try{
+      aiBtn.disabled = true;
+
+      try {
         const prompt = `Írj rövid, eladható magyar hirdetészöveget ehhez: "${title}". Adj meg kiemelt előnyöket, állapotot, és zárd felhívással. 3-5 mondat.`;
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${cfg.GEMINI_KEY}`, {
-          method:'POST',
-          headers:{ 'Content-Type':'application/json' },
-          body: JSON.stringify({ contents:[{ parts:[{ text: prompt }]}] })
-        });
+
+        const res = await fetch(
+          `https://mvtjyxyzdwfngzucbwoy.supabase.co/functions/v1/gemini-proxy`,
+          {
+            method:'POST',
+            headers:{ 'Content-Type':'application/json' },
+            body: JSON.stringify({ 
+              contents: [ { parts: [ { text: prompt } ] } ] 
+            })
+          }
+        );
+
+        if (!res.ok) throw new Error('Gemini proxy hiba');
         const data = await res.json();
         const txt = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
         if (txt) descInput.value = txt;
         else alert('Nem érkezett válasz a Geminitől.');
-      }catch(err){
+      } catch (err) {
         console.error(err);
-        alert('Gemini hívás hiba.');
-      }finally{
+        alert('Hiba történt a Gemini AI hívásakor.');
+      } finally {
         aiLoading.classList.add('hidden');
+        aiBtn.disabled = false;
       }
     });
 
