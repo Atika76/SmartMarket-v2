@@ -8,5 +8,5 @@ window.__CONFIG__ = {
 
   // Gemini AI kulcs (Generative Language API)
   // Ha még nincs, ide később bemásolhatod
-  GEMINI_KEY: "IDE_ÍRD_BE_A_GEMINI_API_KULCSODAT"
+  GEMINI_KEY: "AIzaSyC8-cu3m5T6pOZGQjwgnM4yFWac0-qNbCU"
 };
