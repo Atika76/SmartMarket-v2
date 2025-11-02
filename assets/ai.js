@@ -6,10 +6,7 @@ window.AI = (function () {
       const res = await fetch(C.EDGE_FUNCTION_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ keywords: title || "", category: category || "", price: String(price || "") })
-      });
-      if (!res.ok) throw new Error("Edge funkció hiba: " + res.status);
-      const js = await res.json().catch(()=>({}));
+        body: JSON.stringify({ title, category }) );
       return js.description || js.text || "";
     }
     // helyi mock – mindig ad javaslatot
