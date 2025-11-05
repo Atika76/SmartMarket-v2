@@ -44,9 +44,31 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const web=document.getElementById('website').value.trim()||null;
     const files=document.getElementById('images').files;
     try{
+      // --- JAVÍTÁS KEZDETE ---
+      // Először le kell kérni az aktuális felhasználót
+      const { data: { user } } = await supa.auth.getUser();
+      if (!user) {
+        // Ha nincs bejelentkezve, nem tud menteni
+        throw new Error('Nem vagy bejelentkezve! Jelentkezz be az auth.html oldalon.');
+      }
+      // --- JAVÍTÁS VÉGE ---
+
       let urls=[];
       if(files.length>0)urls=await uploadImages(files);
-      const { error } = await supa.from('hirdetesek').insert({ cim:title, leiras:desc, kategoria:cat, ar:price, telefon:phone, weboldal:web, kepek:urls });
+      
+      // --- JAVÍTÁS: A user.id hozzáadása a mentéshez ---
+      const { error } = await supa.from('hirdetesek').insert({ 
+        user_id: user.id, // EZ A LÉNYEG!
+        cim:title, 
+        leiras:desc, 
+        kategoria:cat, 
+        ar:price, 
+        telefon:phone, 
+        weboldal:web, 
+        kepek:urls 
+      });
+      // --- JAVÍTÁS VÉGE ---
+      
       if(error)throw error;
       msg.className='text-green-600 text-sm'; msg.textContent='Sikeresen mentve!'; e.target.reset(); loadList();
     }catch(err){ msg.className='text-red-600 text-sm'; msg.textContent='Hiba: '+err.message; }
