@@ -44,21 +44,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const web=document.getElementById('website').value.trim()||null;
     const files=document.getElementById('images').files;
     try{
-      // --- JAVÍTÁS KEZDETE ---
-      // Először le kell kérni az aktuális felhasználót
       const { data: { user } } = await supa.auth.getUser();
       if (!user) {
-        // Ha nincs bejelentkezve, nem tud menteni
         throw new Error('Nem vagy bejelentkezve! Jelentkezz be az auth.html oldalon.');
       }
-      // --- JAVÍTÁS VÉGE ---
-
       let urls=[];
       if(files.length>0)urls=await uploadImages(files);
-      
-      // --- JAVÍTÁS: A user.id hozzáadása a mentéshez ---
       const { error } = await supa.from('hirdetesek').insert({ 
-        user_id: user.id, // EZ A LÉNYEG!
+        user_id: user.id, 
         cim:title, 
         leiras:desc, 
         kategoria:cat, 
@@ -67,15 +60,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
         weboldal:web, 
         kepek:urls 
       });
-      // --- JAVÍTÁS VÉGE ---
-      
       if(error)throw error;
       msg.className='text-green-600 text-sm'; msg.textContent='Sikeresen mentve!'; e.target.reset(); loadList();
     }catch(err){ msg.className='text-red-600 text-sm'; msg.textContent='Hiba: '+err.message; }
   });
 });
 
-// Lista
+// *** MÓDOSÍTOTT RÉSZ (Lista) ***
 async function loadList(){
   const q=document.getElementById('q').value.trim();
   const cat=document.getElementById('filterCategory').value;
@@ -86,15 +77,34 @@ async function loadList(){
   if(sort==='price_asc')query=query.order('ar',{ascending:true});
   else if(sort==='price_desc')query=query.order('ar',{ascending:false});
   else query=query.order('created_at',{ascending:false});
+  
+  // *** ÚJ RÉSZ: Lekérjük a bejelentkezett felhasználót ***
+  const { data: { session } } = await supa.auth.getSession();
+  const currentUserId = session?.user?.id; // A bejelentkezett felhasználó ID-ja
+
   const { data, error }=await query.limit(60);
   const list=document.getElementById('list');
   const empty=document.getElementById('emptyState');
   list.innerHTML='';
   if(error||!data||data.length===0){empty.classList.remove('hidden');return;}
   empty.classList.add('hidden');
+  
   data.forEach(ad=>{
     const img=(ad.kepek&&ad.kepek[0])||'https://images.unsplash.com/photo-1523275335684-37898b6baf30';
     const price=ad.ar?new Intl.NumberFormat('hu-HU').format(ad.ar)+' Ft':'–';
+
+    // *** ÚJ RÉSZ: Törlés gomb HTML generálása, ha a felhasználó a tulajdonos ***
+    let deleteButtonHtml = '';
+    if (currentUserId && ad.user_id === currentUserId) {
+      deleteButtonHtml = `
+        <button 
+          data-id="${ad.id}" 
+          class="delete-btn bg-red-500 text-white px-3 py-1 rounded text-xs mt-2 self-start hover:bg-red-600">
+          Törlés
+        </button>`;
+    }
+
+    // *** MÓDOSÍTOTT RÉSZ: A Törlés gomb hozzáadása a kártyához ***
     list.innerHTML+=`<article class="bg-white rounded shadow overflow-hidden flex flex-col">
       <img src="${img}" class="h-40 w-full object-cover"/>
       <div class="p-3 flex-1 flex flex-col">
@@ -102,13 +112,38 @@ async function loadList(){
         <h3 class="font-semibold">${ad.cim}</h3>
         <p class="text-sm text-gray-600 flex-1">${ad.leiras||''}</p>
         <div class="mt-2 font-bold text-violet-700">${price}</div>
+        ${deleteButtonHtml} 
       </div></article>`;
   });
 }
+
+// *** MÓDOSÍTOTT RÉSZ (Keresés és Törlés eseményfigyelői) ***
 document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('searchBtn').addEventListener('click',loadList);
   ['q','filterCategory','sortBy'].forEach(id=>document.getElementById(id).addEventListener('change',loadList));
-  loadList();
+  loadList(); // Első lista betöltés
+
+  // *** ÚJ RÉSZ: Eseményfigyelő a Törlés gombokhoz (Esemény delegálás) ***
+  document.getElementById('list').addEventListener('click', async (e) => {
+    // Ellenőrizzük, hogy a kattintás a .delete-btn osztályú gombon történt-e
+    if (e.target && e.target.classList.contains('delete-btn')) {
+      e.preventDefault();
+      const id = e.target.dataset.id; // A gomb 'data-id' attribútumából vesszük az ID-t
+      
+      if (confirm('Biztosan törölni szeretnéd ezt a hirdetést? Ezt nem lehet visszavonni.')) {
+        try {
+          // Törlési parancs küldése a Supabase-nek
+          const { error } = await supa.from('hirdetesek').delete().eq('id', id);
+          if (error) throw error;
+          
+          // Sikeres törlés után újratöltjük a listát
+          loadList(); 
+        } catch (err) {
+          alert('Hiba a törlés során: ' + err.message);
+        }
+      }
+    }
+  });
 });
 
 // Gemini AI
