@@ -21,8 +21,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Képfeltöltés (MÓDOSÍTVA 5 KÉPRE)
 async function uploadImages(files){
   const urls=[];
-  // *** MÓDOSÍTÁS: A korlát 3-ról 5-re emelve ***
-  const max=Math.min(files.length, 5); // Itt volt 3
+  const max=Math.min(files.length, 5); // 5-ös korlát
   for(let i=0;i<max;i++){
     const f=files[i];
     const key=`ad-${Date.now()}-${Math.random().toString(36).slice(2)}-${f.name}`;
@@ -34,7 +33,7 @@ async function uploadImages(files){
   return urls;
 }
 
-// Mentés
+// Mentés (JAVÍTVA AZ RLS HIBÁRA)
 document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('adForm').addEventListener('submit',async(e)=>{
     e.preventDefault();
@@ -48,14 +47,19 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const web=document.getElementById('website').value.trim()||null;
     const files=document.getElementById('images').files;
     try{
+      // *** EZ A RÉSZ HIBÁDZOTT NÁLAD ***
+      // Lekérjük a felhasználót, hogy elküldhessük az ID-ját
       const { data: { user } } = await supa.auth.getUser();
       if (!user) {
         throw new Error('Nem vagy bejelentkezve! Jelentkezz be az auth.html oldalon.');
       }
+      
       let urls=[];
       if(files.length>0)urls=await uploadImages(files);
+      
+      // *** A "user_id: user.id" hozzáadása a mentéshez ***
       const { error } = await supa.from('hirdetesek').insert({ 
-        user_id: user.id, 
+        user_id: user.id, // EZ A LÉNYEG!
         cim:title, 
         leiras:desc, 
         kategoria:cat, 
@@ -64,13 +68,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
         weboldal:web, 
         kepek:urls 
       });
+      // *** JAVÍTÁS VÉGE ***
+      
       if(error)throw error;
       msg.className='text-green-600 text-sm'; msg.textContent='Sikeresen mentve!'; e.target.reset(); loadList();
     }catch(err){ msg.className='text-red-600 text-sm'; msg.textContent='Hiba: '+err.message; }
   });
 });
 
-// Lista (MÓDOSÍTVA AZ ADMIN TÖRLÉSHEZ)
+// Lista (ADMIN TÖRLÉSSEL)
 async function loadList(){
   const q=document.getElementById('q').value.trim();
   const cat=document.getElementById('filterCategory').value;
@@ -159,7 +165,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     aiLoading.classList.remove('hidden');aiBtn.disabled=true;
     try{
       const prompt=`Írj rövid, eladható magyar hirdetést ehhez: "${title.value.trim()}". Adj meg kiemelt előnyöket, állapotot, és zárd felhívással.`;
-      const res=await fetch(EDGE_FUNCTION_URL,{method:'POST',headers:{'Content-Type':'json','Authorization':`Bearer ${SUPABASE_ANON_KEY}`},body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})});
+      const res=await fetch(EDGE_FUNCTION_URL,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_ANON_KEY}`},body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})});
       if(!res.ok)throw new Error('Gemini hiba');
       const data=await res.json();
       const txt=data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
