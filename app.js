@@ -2,7 +2,7 @@ const { SUPABASE_URL, SUPABASE_ANON_KEY, BUCKET, EDGE_FUNCTION_URL } = window.__
 const { createClient } = supabase;
 const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// *** ÚJ: Admin email cím ***
+// *** Admin email cím ***
 const ADMIN_EMAIL = 'atika.76@windowslive.com';
 
 // AUTH állapot
@@ -18,10 +18,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
-// Képfeltöltés
+// Képfeltöltés (MÓDOSÍTVA 5 KÉPRE)
 async function uploadImages(files){
   const urls=[];
-  const max=Math.min(files.length,3);
+  // *** MÓDOSÍTÁS: A korlát 3-ról 5-re emelve ***
+  const max=Math.min(files.length, 5); // Itt volt 3
   for(let i=0;i<max;i++){
     const f=files[i];
     const key=`ad-${Date.now()}-${Math.random().toString(36).slice(2)}-${f.name}`;
@@ -81,7 +82,7 @@ async function loadList(){
   else if(sort==='price_desc')query=query.order('ar',{ascending:false});
   else query=query.order('created_at',{ascending:false});
   
-  // *** MÓDOSÍTÁS: Lekérjük a bejelentkezett felhasználót és email címét ***
+  // Lekérjük a bejelentkezett felhasználót és email címét
   const { data: { session } } = await supa.auth.getSession();
   const currentUserId = session?.user?.id; 
   const currentUserEmail = session?.user?.email;
@@ -98,7 +99,7 @@ async function loadList(){
     const img=(ad.kepek&&ad.kepek[0])||'https://images.unsplash.com/photo-1523275335684-37898b6baf30';
     const price=ad.ar?new Intl.NumberFormat('hu-HU').format(ad.ar)+' Ft':'–';
 
-    // *** MÓDOSÍTÁS: A gomb megjelenik, ha tulajdonos VAGY admin ***
+    // A gomb megjelenik, ha tulajdonos VAGY admin
     let deleteButtonHtml = '';
     const isOwner = currentUserId && ad.user_id === currentUserId;
     if (isOwner || isAdmin) {
@@ -128,7 +129,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   ['q','filterCategory','sortBy'].forEach(id=>document.getElementById(id).addEventListener('change',loadList));
   loadList(); // Első lista betöltés
 
-  // Törlés gomb eseményfigyelő (NEM VÁLTOZOTT)
+  // Törlés gomb eseményfigyelő
   document.getElementById('list').addEventListener('click', async (e) => {
     if (e.target && e.target.classList.contains('delete-btn')) {
       e.preventDefault();
@@ -158,7 +159,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     aiLoading.classList.remove('hidden');aiBtn.disabled=true;
     try{
       const prompt=`Írj rövid, eladható magyar hirdetést ehhez: "${title.value.trim()}". Adj meg kiemelt előnyöket, állapotot, és zárd felhívással.`;
-      const res=await fetch(EDGE_FUNCTION_URL,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_ANON_KEY}`},body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})});
+      const res=await fetch(EDGE_FUNCTION_URL,{method:'POST',headers:{'Content-Type':'json','Authorization':`Bearer ${SUPABASE_ANON_KEY}`},body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})});
       if(!res.ok)throw new Error('Gemini hiba');
       const data=await res.json();
       const txt=data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
