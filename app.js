@@ -2,6 +2,9 @@ const { SUPABASE_URL, SUPABASE_ANON_KEY, BUCKET, EDGE_FUNCTION_URL } = window.__
 const { createClient } = supabase;
 const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// *** ÚJ: Admin email cím ***
+const ADMIN_EMAIL = 'atika.76@windowslive.com';
+
 // AUTH állapot
 document.addEventListener('DOMContentLoaded', async () => {
   const { data: { session } } = await supa.auth.getSession();
@@ -66,7 +69,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 });
 
-// *** MÓDOSÍTOTT RÉSZ (Lista) ***
+// Lista (MÓDOSÍTVA AZ ADMIN TÖRLÉSHEZ)
 async function loadList(){
   const q=document.getElementById('q').value.trim();
   const cat=document.getElementById('filterCategory').value;
@@ -78,9 +81,11 @@ async function loadList(){
   else if(sort==='price_desc')query=query.order('ar',{ascending:false});
   else query=query.order('created_at',{ascending:false});
   
-  // *** ÚJ RÉSZ: Lekérjük a bejelentkezett felhasználót ***
+  // *** MÓDOSÍTÁS: Lekérjük a bejelentkezett felhasználót és email címét ***
   const { data: { session } } = await supa.auth.getSession();
-  const currentUserId = session?.user?.id; // A bejelentkezett felhasználó ID-ja
+  const currentUserId = session?.user?.id; 
+  const currentUserEmail = session?.user?.email;
+  const isAdmin = currentUserEmail === ADMIN_EMAIL; // Ellenőrizzük, hogy admin-e
 
   const { data, error }=await query.limit(60);
   const list=document.getElementById('list');
@@ -93,18 +98,18 @@ async function loadList(){
     const img=(ad.kepek&&ad.kepek[0])||'https://images.unsplash.com/photo-1523275335684-37898b6baf30';
     const price=ad.ar?new Intl.NumberFormat('hu-HU').format(ad.ar)+' Ft':'–';
 
-    // *** ÚJ RÉSZ: Törlés gomb HTML generálása, ha a felhasználó a tulajdonos ***
+    // *** MÓDOSÍTÁS: A gomb megjelenik, ha tulajdonos VAGY admin ***
     let deleteButtonHtml = '';
-    if (currentUserId && ad.user_id === currentUserId) {
+    const isOwner = currentUserId && ad.user_id === currentUserId;
+    if (isOwner || isAdmin) {
       deleteButtonHtml = `
         <button 
           data-id="${ad.id}" 
-          class="delete-btn bg-red-500 text-white px-3 py-1 rounded text-xs mt-2 self-start hover:bg-red-600">
-          Törlés
+          class="delete-btn ${isAdmin && !isOwner ? 'bg-yellow-500' : 'bg-red-500'} text-white px-3 py-1 rounded text-xs mt-2 self-start hover:opacity-80">
+          Törlés ${isAdmin && !isOwner ? '(Admin)' : ''}
         </button>`;
     }
 
-    // *** MÓDOSÍTOTT RÉSZ: A Törlés gomb hozzáadása a kártyához ***
     list.innerHTML+=`<article class="bg-white rounded shadow overflow-hidden flex flex-col">
       <img src="${img}" class="h-40 w-full object-cover"/>
       <div class="p-3 flex-1 flex flex-col">
@@ -117,26 +122,22 @@ async function loadList(){
   });
 }
 
-// *** MÓDOSÍTOTT RÉSZ (Keresés és Törlés eseményfigyelői) ***
+// Keresés és Törlés eseményfigyelői
 document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('searchBtn').addEventListener('click',loadList);
   ['q','filterCategory','sortBy'].forEach(id=>document.getElementById(id).addEventListener('change',loadList));
   loadList(); // Első lista betöltés
 
-  // *** ÚJ RÉSZ: Eseményfigyelő a Törlés gombokhoz (Esemény delegálás) ***
+  // Törlés gomb eseményfigyelő (NEM VÁLTOZOTT)
   document.getElementById('list').addEventListener('click', async (e) => {
-    // Ellenőrizzük, hogy a kattintás a .delete-btn osztályú gombon történt-e
     if (e.target && e.target.classList.contains('delete-btn')) {
       e.preventDefault();
-      const id = e.target.dataset.id; // A gomb 'data-id' attribútumából vesszük az ID-t
+      const id = e.target.dataset.id; 
       
       if (confirm('Biztosan törölni szeretnéd ezt a hirdetést? Ezt nem lehet visszavonni.')) {
         try {
-          // Törlési parancs küldése a Supabase-nek
           const { error } = await supa.from('hirdetesek').delete().eq('id', id);
           if (error) throw error;
-          
-          // Sikeres törlés után újratöltjük a listát
           loadList(); 
         } catch (err) {
           alert('Hiba a törlés során: ' + err.message);
