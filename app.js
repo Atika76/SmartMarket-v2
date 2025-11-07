@@ -1,10 +1,3 @@
-// Javított app.js — SmartMarket
-// Fő változtatások:
-// - Robustabb Supabase storage public URL kezelés
-// - Gemini hívás: model frissítve "models/gemini-1.5-flash"-re, többféle válaszforma kezelése
-// - Hibakezelések részletesebbek, konzolba is írunk
-// - Kis finomítások mobil és lista kezeléshez
-
 const { SUPABASE_URL, SUPABASE_ANON_KEY, BUCKET, EDGE_FUNCTION_URL } = window.__CONFIG__;
 const { createClient } = supabase;
 const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -14,49 +7,38 @@ const ADMIN_EMAIL = 'atika.76@windowslive.com';
 
 // AUTH állapot
 document.addEventListener('DOMContentLoaded', async () => {
-  try{
-    const { data: { session } } = await supa.auth.getSession();
-    const loginLink = document.getElementById('loginLink');
-    const logoutBtn = document.getElementById('logoutBtn');
-    if (session) {
-      loginLink.textContent = session.user.email;
-      loginLink.href = '#';
-      logoutBtn.classList.remove('hidden');
-      logoutBtn.onclick = async ()=>{ await supa.auth.signOut(); location.reload(); };
-    }
-  }catch(err){ console.error('Auth init hiba', err); }
+  const { data: { session } } = await supa.auth.getSession();
+  const loginLink = document.getElementById('loginLink');
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (session) {
+    loginLink.textContent = session.user.email;
+    loginLink.href = '#';
+    logoutBtn.classList.remove('hidden');
+    logoutBtn.onclick = async ()=>{ await supa.auth.signOut(); location.reload(); };
+  }
 });
 
-// Képfeltöltés (max 5)
+// Képfeltöltés (MÓDOSÍTVA 5 KÉPRE)
 async function uploadImages(files){
   const urls=[];
-  const max=Math.min(files.length, 5);
+  const max=Math.min(files.length, 5); // 5-ös korlát
   for(let i=0;i<max;i++){
     const f=files[i];
     const key=`ad-${Date.now()}-${Math.random().toString(36).slice(2)}-${f.name}`;
     const { data, error } = await supa.storage.from(BUCKET).upload(key,f);
-    if(error){
-      console.error('Storage upload error', error);
-      throw error;
-    }
-    // getPublicUrl visszatérési forma változhat, ezért óvatosan kezeljük
-    const pubRes = await supa.storage.from(BUCKET).getPublicUrl(data.path);
-    // pubRes lehet: { data: { publicUrl: '...' } } vagy { data: { public_url: '...' } }
-    const publicUrl = pubRes?.data?.publicUrl || pubRes?.data?.public_url || '';
-    if(!publicUrl) console.warn('Nem kaptunk public URL-t a feltöltés után:', pubRes);
-    urls.push(publicUrl);
+    if(error)throw error;
+    const { data:pub } = supa.storage.from(BUCKET).getPublicUrl(data.path);
+    urls.push(pub.publicUrl);
   }
   return urls;
 }
 
-// Mentés (insert) — gondoskodunk róla, hogy user legyen
+// Mentés (JAVÍTVA AZ RLS HIBÁRA)
 document.addEventListener('DOMContentLoaded', ()=>{
-  const form = document.getElementById('adForm');
-  if(!form) return;
-  form.addEventListener('submit',async(e)=>{
+  document.getElementById('adForm').addEventListener('submit',async(e)=>{
     e.preventDefault();
     const msg=document.getElementById('adFormMsg');
-    msg.className='text-gray-700 text-sm'; msg.textContent='Mentés...';
+    msg.textContent='Mentés...';
     const title=document.getElementById('title').value.trim();
     const desc=document.getElementById('description').value.trim();
     const cat=document.getElementById('category').value;
@@ -69,35 +51,32 @@ document.addEventListener('DOMContentLoaded', ()=>{
       if (!user) {
         throw new Error('Nem vagy bejelentkezve! Jelentkezz be az auth.html oldalon.');
       }
-
+      
       let urls=[];
-      if(files && files.length>0) urls = await uploadImages(files);
-
-      // Ha RLS miatt szükséges lehet select után az insert
-      const insertObj = {
-        user_id: user.id,
-        cim: title,
-        leiras: desc,
-        kategoria: cat,
-        ar: price,
-        telefon: phone,
-        weboldal: web,
-        kepek: urls
-      };
-
-      const { data: insertData, error } = await supa.from('hirdetesek').insert(insertObj).select();
-      if(error) throw error;
-
-      msg.className='text-green-600 text-sm'; msg.textContent='Sikeresen mentve!';
-      e.target.reset();
+      if(files.length>0)urls=await uploadImages(files);
+      
+      const { error } = await supa.from('hirdetesek').insert({ 
+        user_id: user.id, // EZ A LÉNYEG!
+        cim:title, 
+        leiras:desc, 
+        kategoria:cat, 
+        ar:price, 
+        telefon:phone, 
+        weboldal:web, 
+        kepek:urls 
+      });
+      
+      if(error)throw error;
+      msg.className='text-green-600 text-sm'; msg.textContent='Sikeresen mentve!'; 
+      e.target.reset(); 
       loadList();
+      
+      // Mobilon sikeres mentés után visszavált a listára
+      if (window.innerWidth < 768) {
+        showMobileView('list');
+      }
 
-      if (window.innerWidth < 768) showMobileView('list');
-
-    }catch(err){
-      console.error('Mentés hiba', err);
-      msg.className='text-red-600 text-sm'; msg.textContent='Hiba: '+(err.message||err);
-    }
+    }catch(err){ msg.className='text-red-600 text-sm'; msg.textContent='Hiba: '+err.message; }
   });
 });
 
@@ -105,134 +84,140 @@ document.addEventListener('DOMContentLoaded', ()=>{
 async function loadList(){
   const formContainer = document.getElementById('form-container');
   if (window.innerWidth < 768 && formContainer && !formContainer.classList.contains('hidden')) {
-    return; // mobilon ha űrlap nyitva, ne töltsük be
+    return;
   }
 
-  const q=document.getElementById('q')?.value.trim();
-  const cat=document.getElementById('filterCategory')?.value;
-  const sort=document.getElementById('sortBy')?.value;
+  const q=document.getElementById('q').value.trim();
+  const cat=document.getElementById('filterCategory').value;
+  const sort=document.getElementById('sortBy').value;
   let query=supa.from('hirdetesek').select('*');
-  if(q) query = query.or(`cim.ilike.%${q}%,leiras.ilike.%${q}%`);
-  if(cat) query = query.eq('kategoria',cat);
-  if(sort==='price_asc') query = query.order('ar',{ascending:true});
-  else if(sort==='price_desc') query = query.order('ar',{ascending:false});
-  else query = query.order('created_at',{ascending:false});
+  if(q)query=query.or(`cim.ilike.%${q}%,leiras.ilike.%${q}%`);
+  if(cat)query=query.eq('kategoria',cat);
+  if(sort==='price_asc')query=query.order('ar',{ascending:true});
+  else if(sort==='price_desc')query=query.order('ar',{ascending:false});
+  else query=query.order('created_at',{ascending:false});
+  
+  const { data: { session } } = await supa.auth.getSession();
+  const currentUserId = session?.user?.id; 
+  const currentUserEmail = session?.user?.email;
+  const isAdmin = currentUserEmail === ADMIN_EMAIL; 
 
-  try{
-    const { data: { session } } = await supa.auth.getSession();
-    const currentUserId = session?.user?.id;
-    const currentUserEmail = session?.user?.email;
-    const isAdmin = currentUserEmail === ADMIN_EMAIL;
+  const { data, error }=await query.limit(60);
+  const list=document.getElementById('list');
+  const empty=document.getElementById('emptyState');
+  list.innerHTML='';
+  if(error||!data||data.length===0){empty.classList.remove('hidden');return;}
+  empty.classList.add('hidden');
+  
+  data.forEach(ad=>{
+    const hasImages = ad.kepek && ad.kepek.length > 0;
+    const coverImage = hasImages ? ad.kepek[0] : 'https://images.unsplash.com/photo-1523275335684-37898b6baf30';
+    const imagesData = hasImages ? JSON.stringify(ad.kepek) : '[]';
+    
+    const imageHtml = `
+      <img 
+        src="${coverImage}" 
+        class="h-40 w-full object-cover ${hasImages ? 'clickable-gallery' : ''}"
+        ${hasImages ? `data-images='${imagesData}'` : ''}
+      >`;
 
-    const { data, error } = await query.limit(60);
-    const list=document.getElementById('list');
-    const empty=document.getElementById('emptyState');
-    list.innerHTML='';
-    if(error){
-      console.error('Lekérdezési hiba', error);
-      empty.classList.remove('hidden');
-      return;
+    const price=ad.ar?new Intl.NumberFormat('hu-HU').format(ad.ar)+' Ft':'–';
+
+    let deleteButtonHtml = '';
+    const isOwner = currentUserId && ad.user_id === currentUserId;
+    if (isOwner || isAdmin) {
+      deleteButtonHtml = `
+        <button 
+          data-id="${ad.id}" 
+          class="delete-btn ${isAdmin && !isOwner ? 'bg-yellow-500' : 'bg-red-500'} text-white px-3 py-1 rounded text-xs mt-2 self-start hover:opacity-80">
+          Törlés ${isAdmin && !isOwner ? '(Admin)' : ''}
+        </button>`;
     }
-    if(!data || data.length===0){ empty.classList.remove('hidden'); return; }
-    empty.classList.add('hidden');
 
-    data.forEach(ad=>{
-      const hasImages = Array.isArray(ad.kepek) && ad.kepek.length > 0;
-      const coverImage = hasImages ? ad.kepek[0] : 'https://images.unsplash.com/photo-1523275335684-37898b6baf30';
-      const imagesData = hasImages ? JSON.stringify(ad.kepek) : '[]';
-      const price = ad.ar?new Intl.NumberFormat('hu-HU').format(ad.ar)+' Ft':'–';
-
-      let deleteButtonHtml = '';
-      const isOwner = currentUserId && ad.user_id === currentUserId;
-      if (isOwner || isAdmin) {
-        deleteButtonHtml = `\n        <button\n          data-id="${ad.id}"\n          class="delete-btn ${isAdmin && !isOwner ? 'bg-yellow-500' : 'bg-red-500'} text-white px-3 py-1 rounded text-xs mt-2 self-start hover:opacity-80">\n          Törlés ${isAdmin && !isOwner ? '(Admin)' : ''}\n        </button>`;
-      }
-
-      list.innerHTML+=`<article class="bg-white rounded shadow overflow-hidden flex flex-col">\n      <img src="${coverImage}" class="h-40 w-full object-cover ${hasImages ? 'clickable-gallery' : ''}" ${hasImages ? `data-images='${imagesData}'` : ''}>\n      <div class="p-3 flex-1 flex flex-col">\n        <div class="text-xs text-violet-700">${ad.kategoria||''}</div>\n        <h3 class="font-semibold">${ad.cim}</h3>\n        <p class="text-sm text-gray-600 flex-1">${ad.leiras||''}</p>\n        <div class="mt-2 font-bold text-violet-700">${price}</div>\n        ${deleteButtonHtml} \n      </div></article>`;
-    });
-  }catch(err){ console.error('loadList hiba', err); }
+    list.innerHTML+=`<article class="bg-white rounded shadow overflow-hidden flex flex-col">
+      ${imageHtml}
+      <div class="p-3 flex-1 flex flex-col">
+        <div class="text-xs text-violet-700">${ad.kategoria||''}</div>
+        <h3 class="font-semibold">${ad.cim}</h3>
+        <p class="text-sm text-gray-600 flex-1">${ad.leiras||''}</p>
+        <div class="mt-2 font-bold text-violet-700">${price}</div>
+        ${deleteButtonHtml} 
+      </div></article>`;
+  });
 }
 
 // Keresés és Törlés eseményfigyelői
 document.addEventListener('DOMContentLoaded',()=>{
-  document.getElementById('searchBtn')?.addEventListener('click',loadList);
-  ['q','filterCategory','sortBy'].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('change',loadList); });
-  loadList();
+  document.getElementById('searchBtn').addEventListener('click',loadList);
+  ['q','filterCategory','sortBy'].forEach(id=>document.getElementById(id).addEventListener('change',loadList));
+  loadList(); // Első lista betöltés
 
-  document.getElementById('list')?.addEventListener('click', async (e) => {
+  // Törlés gomb eseményfigyelő
+  document.getElementById('list').addEventListener('click', async (e) => {
     if (e.target && e.target.classList.contains('delete-btn')) {
       e.preventDefault();
-      const id = e.target.dataset.id;
+      const id = e.target.dataset.id; 
+      
       if (confirm('Biztosan törölni szeretnéd ezt a hirdetést? Ezt nem lehet visszavonni.')) {
         try {
           const { error } = await supa.from('hirdetesek').delete().eq('id', id);
           if (error) throw error;
-          loadList();
+          loadList(); 
         } catch (err) {
-          console.error('Törlés hiba', err);
-          alert('Hiba a törlés során: ' + (err.message||err));
+          alert('Hiba a törlés során: ' + err.message);
         }
       }
     }
   });
 });
 
-// Gemini AI javaslat — model frissítve és válaszformátumok kezelve
+// *** JAVÍTVA: Gemini AI (a kulcsszavas segédhez) ***
 document.addEventListener('DOMContentLoaded',()=>{
   const aiBtn=document.getElementById('aiSuggest');
   const aiLoading=document.getElementById('aiLoading');
-  const title=document.getElementById('title');
-  const desc=document.getElementById('description');
-  if(!aiBtn) return;
-
+  const keywordsInput = document.getElementById('aiKeywords'); // <-- ÚJ: Kulcsszó input
+  const desc = document.getElementById('description'); // <-- Cél: a leírás
+  
   aiBtn.addEventListener('click',async()=>{
-    if(!title.value.trim()){alert('Adj meg egy címet!');return;}
+    const keywords = keywordsInput.value.trim(); // <-- ÚJ: Kulcsszót olvas
+    if(!keywords){alert('Adj meg kulcsszavakat a generáláshoz!');return;} // <-- ÚJ: Kulcsszót ellenőriz
+    
     aiLoading.classList.remove('hidden');aiBtn.disabled=true;
     try{
-      const prompt=`Írj rövid, eladható magyar hirdetést ehhez: "${title.value.trim()}". Adj meg kiemelt előnyöket, állapotot, és zárd felhívással.`;
-
-      // Küldés az edge function-nek — hozzáadunk explicit modellt (frissítve)
-      const body = {
-        model: 'models/gemini-1.5-flash',
-        contents: [{ parts: [{ text: prompt }] }]
-      };
-
-      const res=await fetch(EDGE_FUNCTION_URL,{
-        method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_ANON_KEY}`},
-        body:JSON.stringify(body)
-      });
-
-      if(!res.ok){
-        const txt = await res.text().catch(()=>null);
-        console.error('Gemini edge hiba', res.status, txt);
-        throw new Error('Gemini hiba: ' + res.status);
+      // ÚJ: A prompt a kulcsszavakat használja
+      const prompt = `Írj egy rövid, figyelemfelkeltő magyar hirdetésszöveget. Kulcsszavak: "${keywords}". A válasz csak a hirdetés szövege legyen, cím nélkül.`;
+      const res=await fetch(EDGE_FUNCTION_URL,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_ANON_KEY}`},body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})});
+      
+      if(!res.ok) {
+        // Részletesebb hibakezelés a konzolon
+        const errorBody = await res.json().catch(() => ({ error: 'Ismeretlen válasz' }));
+        console.error('Gemini API hiba:', errorBody);
+        throw new Error(`Gemini API hiba (${res.status})`);
       }
-
-      const data = await res.json().catch(()=>null);
-      console.log('Gemini válasz raw:', data);
-
-      // Többféle válaszformátum kezelése
-      const candidateText = data?.candidates?.[0]?.content?.parts?.[0]?.text
-        || data?.output?.[0]?.content?.text
-        || data?.candidates?.[0]?.message?.content?.[0]?.text
-        || data?.candidates?.[0]?.message?.content?.parts?.[0]?.text;
-
-      if(candidateText){
-        desc.value = candidateText.trim();
-      } else {
-        alert('Nincs válasz a Gemini-től (váratlan formátum). Nézd meg a konzolt.');
+      
+      const data=await res.json();
+      
+      // A "text" mezőt várjuk a proxy-tól, ahogy eddig is (vagy a standard választ)
+      const txt = data?.text?.trim() || data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      
+      if(txt)desc.value=txt; // <-- Csak a leírást írja felül
+      else {
+        console.error('Nincs szöveg a Gemini válaszában:', data);
+        alert('Nincs válasz a hiba miatt.');
       }
-
     }catch(err){
-      console.error('AI javaslat hiba', err);
-      alert('Hiba: '+(err.message||err));
-    }finally{ aiLoading.classList.add('hidden'); aiBtn.disabled=false; }
+      console.error('Hiba az AI generáláskor:', err);
+      alert('Hiba: '+err.message);
+    }finally{
+      aiLoading.classList.add('hidden');aiBtn.disabled=false;
+    }
   });
 });
 
-// Lightbox galéria (ugyanaz mint korábban)
+
+// LIGHTBOX GALÉRIA MŰKÖDÉSE
 document.addEventListener('DOMContentLoaded', () => {
+  // Hozzuk létre a lightbox HTML-t és adjuk a body-hoz
   const lightboxHtml = `
     <div id="lightbox" class="lightbox-overlay">
       <div class="lightbox-content">
@@ -262,51 +247,105 @@ document.addEventListener('DOMContentLoaded', () => {
     updateNavButtons();
   }
 
-  function hideLightbox() { lightbox.classList.remove('visible'); }
-  function updateImage() { if (currentImages.length > 0) lightboxImage.src = currentImages[currentIndex]; }
-  function updateNavButtons() { btnPrev.style.display = (currentIndex > 0) ? 'block' : 'none'; btnNext.style.display = (currentIndex < currentImages.length - 1) ? 'block' : 'none'; }
-  function showPrev(){ if(currentIndex>0){ currentIndex--; updateImage(); updateNavButtons(); } }
-  function showNext(){ if(currentIndex < currentImages.length-1){ currentIndex++; updateImage(); updateNavButtons(); } }
+  function hideLightbox() {
+    lightbox.classList.remove('visible');
+  }
 
-  adList?.addEventListener('click', (e) => {
+  function updateImage() {
+    if (currentImages.length > 0) {
+      lightboxImage.src = currentImages[currentIndex];
+    }
+  }
+
+  function updateNavButtons() {
+    btnPrev.style.display = (currentIndex > 0) ? 'block' : 'none';
+    btnNext.style.display = (currentIndex < currentImages.length - 1) ? 'block' : 'none';
+  }
+
+  function showPrev() {
+    if (currentIndex > 0) {
+      currentIndex--;
+      updateImage();
+      updateNavButtons();
+    }
+  }
+
+  function showNext() {
+    if (currentIndex < currentImages.length - 1) {
+      currentIndex++;
+      updateImage();
+      updateNavButtons();
+    }
+  }
+
+  // Eseményfigyelő a lista elemeire (delegálás)
+  adList.addEventListener('click', (e) => {
     if (e.target && e.target.classList.contains('clickable-gallery')) {
-      try{
-        const images = JSON.parse(e.target.dataset.images);
-        if (images && images.length > 0) showLightbox(images, 0);
-      }catch(err){ console.warn('Hibás images adat', e.target.dataset.images); }
+      const images = JSON.parse(e.target.dataset.images);
+      if (images && images.length > 0) {
+        showLightbox(images, 0);
+      }
     }
   });
 
+  // Gomb eseményfigyelők
   btnClose.addEventListener('click', hideLightbox);
   btnPrev.addEventListener('click', showPrev);
   btnNext.addEventListener('click', showNext);
-  lightbox.addEventListener('click', (e) => { if (e.target === lightbox) hideLightbox(); });
-  document.addEventListener('keydown', (e) => { if (lightbox.classList.contains('visible')){ if (e.key==='Escape') hideLightbox(); if (e.key==='ArrowLeft') showPrev(); if (e.key==='ArrowRight') showNext(); } });
+
+  // Bezárás, ha a háttérre kattintasz
+  lightbox.addEventListener('click', (e) => {
+    if (e.target === lightbox) {
+      hideLightbox();
+    }
+  });
+
+  // Billentyűzet vezérlés (Esc, balra, jobbra)
+  document.addEventListener('keydown', (e) => {
+    if (lightbox.classList.contains('visible')) {
+      if (e.key === 'Escape') hideLightbox();
+      if (e.key === 'ArrowLeft') showPrev();
+      if (e.key === 'ArrowRight') showNext();
+    }
+  });
 });
 
-// Mobilnézet váltása
+
+// Mobilnézet váltása (Űrlap/Lista)
 function showMobileView(viewToShow) {
   const formContainer = document.getElementById('form-container');
   const listContainer = document.getElementById('list-container');
   const fab = document.getElementById('show-form-fab');
+
   if (!formContainer || !listContainer || !fab) return;
+
   if (viewToShow === 'form') {
     listContainer.classList.add('hidden');
     formContainer.classList.remove('hidden');
     fab.classList.add('hidden');
-    window.scrollTo(0, 0);
-  } else {
+    window.scrollTo(0, 0); // Ugrás az űrlap tetejére
+  } else { // 'list'
     listContainer.classList.remove('hidden');
     formContainer.classList.add('hidden');
     fab.classList.remove('hidden');
-    loadList();
+    loadList(); // Frissítjük a listát, amikor visszatérünk
   }
 }
 
+// Eseményfigyelők a mobil gombokhoz
 document.addEventListener('DOMContentLoaded', () => {
   const fab = document.getElementById('show-form-fab');
   const cancelBtn = document.getElementById('cancel-form-btn');
-  if (fab) fab.addEventListener('click', () => showMobileView('form'));
-  if (cancelBtn) cancelBtn.addEventListener('click', () => showMobileView('list'));
-  if (window.innerWidth < 768) showMobileView('list');
+  
+  if (fab) {
+    fab.addEventListener('click', () => showMobileView('form'));
+  }
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => showMobileView('list'));
+  }
+
+  // Alapértelmezett állapot beállítása betöltéskor
+  if (window.innerWidth < 768) {
+     showMobileView('list');
+  }
 });
