@@ -6,6 +6,9 @@
   
   <title>SmartMarket</title>
 
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#6d28d9">
+  
   <script src="https://cdn.tailwindcss.com"></script>
   
   <script defer src="https://unpkg.com/@supabase/supabase-js@2"></script>
@@ -33,11 +36,10 @@
       visibility: visible;
     }
     
-    /* *** JAVÍTVA: A galéria mérete 70%-ra csökkentve *** */
     .lightbox-content {
       position: relative;
-      max-width: 70vw; /* Kisebb lett (80 -> 70) */
-      max-height: 70vh; /* Kisebb lett (80 -> 70) */
+      max-width: 70vw; /* 70%-ra csökkentve */
+      max-height: 70vh; /* 70%-ra csökkentve */
       display: flex;
       align-items: center;
       justify-content: center;
