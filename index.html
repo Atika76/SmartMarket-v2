@@ -18,7 +18,7 @@
   <link rel="apple-touch-icon" href="logo.png">
   
   <style>
-    /* ... (Itt vannak a galéria stílusai, ahogy kérted) ... */
+    /* ... (Itt vannak a galéria stílusai) ... */
     .lightbox-overlay {
       position: fixed;
       inset: 0;
@@ -125,13 +125,19 @@
           <textarea id="description" rows="5" required class="mt-1 w-full border border-gray-300 rounded-md shadow-sm p-2"></textarea>
         </div>
 
-        <div class="relative">
-          <button type="button" id="aiSuggest" class="w-full flex items-center justify-center gap-2 text-sm text-violet-600 border border-violet-200 bg-violet-50 rounded-md p-2 hover:bg-violet-100 disabled:opacity-50">
-            <svg id="aiLoading" class="hidden animate-spin h-4 w-4 text-violet-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-            <span>🤖 AI hirdetés generálása</span>
+        <div class="bg-indigo-50 border border-indigo-200 p-5 rounded-lg space-y-3">
+          <h3 class="text-lg font-semibold text-indigo-800 flex items-center gap-2">
+            ✨ AI Hirdetés Segéd
+          </h3>
+          <div>
+            <label for="aiKeywords" class="block text-sm font-medium text-gray-700">Kulcsszavak (a leíráshoz)</label>
+            <input type="text" id="aiKeywords" placeholder="pl. 'szék, jó állapotú, eladó'" class="mt-1 w-full border border-gray-300 rounded-md shadow-sm p-2">
+          </div>
+          <button type="button" id="aiSuggest" class="w-full flex items-center justify-center gap-2 text-sm text-white bg-indigo-600 rounded-md p-2 hover:bg-indigo-700 disabled:opacity-50">
+            <svg id="aiLoading" class="hidden animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+            <span>Leírás generálása</span>
           </button>
         </div>
-
         <div>
           <label for="category" class="block text-sm font-medium text-gray-700">Kategória *</label>
           <select id="category" required class="mt-1 w-full border border-gray-300 rounded-md shadow-sm p-2">
