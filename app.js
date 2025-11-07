@@ -47,8 +47,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const web=document.getElementById('website').value.trim()||null;
     const files=document.getElementById('images').files;
     try{
-      // *** EZ A RÉSZ HIBÁDZOTT NÁLAD ***
-      // Lekérjük a felhasználót, hogy elküldhessük az ID-ját
       const { data: { user } } = await supa.auth.getUser();
       if (!user) {
         throw new Error('Nem vagy bejelentkezve! Jelentkezz be az auth.html oldalon.');
@@ -57,7 +55,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
       let urls=[];
       if(files.length>0)urls=await uploadImages(files);
       
-      // *** A "user_id: user.id" hozzáadása a mentéshez ***
       const { error } = await supa.from('hirdetesek').insert({ 
         user_id: user.id, // EZ A LÉNYEG!
         cim:title, 
@@ -68,7 +65,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
         weboldal:web, 
         kepek:urls 
       });
-      // *** JAVÍTÁS VÉGE ***
       
       if(error)throw error;
       msg.className='text-green-600 text-sm'; msg.textContent='Sikeresen mentve!'; e.target.reset(); loadList();
@@ -76,7 +72,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 });
 
-// Lista (ADMIN TÖRLÉSSEL)
+// Lista (ADMIN TÖRLÉSSEL és GALÉRIÁVAL)
 async function loadList(){
   const q=document.getElementById('q').value.trim();
   const cat=document.getElementById('filterCategory').value;
@@ -88,11 +84,10 @@ async function loadList(){
   else if(sort==='price_desc')query=query.order('ar',{ascending:false});
   else query=query.order('created_at',{ascending:false});
   
-  // Lekérjük a bejelentkezett felhasználót és email címét
   const { data: { session } } = await supa.auth.getSession();
   const currentUserId = session?.user?.id; 
   const currentUserEmail = session?.user?.email;
-  const isAdmin = currentUserEmail === ADMIN_EMAIL; // Ellenőrizzük, hogy admin-e
+  const isAdmin = currentUserEmail === ADMIN_EMAIL; 
 
   const { data, error }=await query.limit(60);
   const list=document.getElementById('list');
@@ -102,10 +97,24 @@ async function loadList(){
   empty.classList.add('hidden');
   
   data.forEach(ad=>{
-    const img=(ad.kepek&&ad.kepek[0])||'https://images.unsplash.com/photo-1523275335684-37898b6baf30';
+    // *** GALÉRIA JAVÍTÁS KEZDETE ***
+    const hasImages = ad.kepek && ad.kepek.length > 0;
+    const coverImage = hasImages ? ad.kepek[0] : 'https://images.unsplash.com/photo-1523275335684-37898b6baf30';
+    
+    // JSON stringgé alakítjuk a képlista átadásához
+    const imagesData = hasImages ? JSON.stringify(ad.kepek) : '[]';
+    
+    // A kép kattinthatóvá tétele, ha van kép
+    const imageHtml = `
+      <img 
+        src="${coverImage}" 
+        class="h-40 w-full object-cover ${hasImages ? 'clickable-gallery' : ''}"
+        ${hasImages ? `data-images='${imagesData}'` : ''}
+      >`;
+    // *** GALÉRIA JAVÍTÁS VÉGE ***
+
     const price=ad.ar?new Intl.NumberFormat('hu-HU').format(ad.ar)+' Ft':'–';
 
-    // A gomb megjelenik, ha tulajdonos VAGY admin
     let deleteButtonHtml = '';
     const isOwner = currentUserId && ad.user_id === currentUserId;
     if (isOwner || isAdmin) {
@@ -118,8 +127,7 @@ async function loadList(){
     }
 
     list.innerHTML+=`<article class="bg-white rounded shadow overflow-hidden flex flex-col">
-      <img src="${img}" class="h-40 w-full object-cover"/>
-      <div class="p-3 flex-1 flex flex-col">
+      ${imageHtml} <div class="p-3 flex-1 flex flex-col">
         <div class="text-xs text-violet-700">${ad.kategoria||''}</div>
         <h3 class="font-semibold">${ad.cim}</h3>
         <p class="text-sm text-gray-600 flex-1">${ad.leiras||''}</p>
@@ -171,5 +179,101 @@ document.addEventListener('DOMContentLoaded',()=>{
       const txt=data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
       if(txt)desc.value=txt;else alert('Nincs válasz.');
     }catch(err){alert('Hiba: '+err.message);}finally{aiLoading.classList.add('hidden');aiBtn.disabled=false;}
+  });
+});
+
+
+// *** ÚJ KÓD: LIGHTBOX GALÉRIA MŰKÖDÉSE ***
+document.addEventListener('DOMContentLoaded', () => {
+  // Hozzuk létre a lightbox HTML-t és adjuk a body-hoz
+  const lightboxHtml = `
+    <div id="lightbox" class="lightbox-overlay">
+      <div class="lightbox-content">
+        <span id="lightbox-close" class="lightbox-close">&times;</span>
+        <button id="lightbox-prev" class="lightbox-nav lightbox-prev">&lt;</button>
+        <img id="lightbox-image" src="" alt="Nagyított kép" class="lightbox-image">
+        <button id="lightbox-next" class="lightbox-nav lightbox-next">&gt;</button>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', lightboxHtml);
+
+  const lightbox = document.getElementById('lightbox');
+  const lightboxImage = document.getElementById('lightbox-image');
+  const btnClose = document.getElementById('lightbox-close');
+  const btnPrev = document.getElementById('lightbox-prev');
+  const btnNext = document.getElementById('lightbox-next');
+  const adList = document.getElementById('list');
+
+  let currentImages = [];
+  let currentIndex = 0;
+
+  function showLightbox(images, startIndex) {
+    currentImages = images;
+    currentIndex = startIndex;
+    updateImage();
+    lightbox.classList.add('visible');
+    updateNavButtons();
+  }
+
+  function hideLightbox() {
+    lightbox.classList.remove('visible');
+  }
+
+  function updateImage() {
+    if (currentImages.length > 0) {
+      lightboxImage.src = currentImages[currentIndex];
+    }
+  }
+
+  function updateNavButtons() {
+    btnPrev.style.display = (currentIndex > 0) ? 'block' : 'none';
+    btnNext.style.display = (currentIndex < currentImages.length - 1) ? 'block' : 'none';
+  }
+
+  function showPrev() {
+    if (currentIndex > 0) {
+      currentIndex--;
+      updateImage();
+      updateNavButtons();
+    }
+  }
+
+  function showNext() {
+    if (currentIndex < currentImages.length - 1) {
+      currentIndex++;
+      updateImage();
+      updateNavButtons();
+    }
+  }
+
+  // Eseményfigyelő a lista elemeire (delegálás)
+  adList.addEventListener('click', (e) => {
+    if (e.target && e.target.classList.contains('clickable-gallery')) {
+      const images = JSON.parse(e.target.dataset.images);
+      if (images && images.length > 0) {
+        showLightbox(images, 0); // Mindig az első képpel kezdjük a galériát
+      }
+    }
+  });
+
+  // Gomb eseményfigyelők
+  btnClose.addEventListener('click', hideLightbox);
+  btnPrev.addEventListener('click', showPrev);
+  btnNext.addEventListener('click', showNext);
+
+  // Bezárás, ha a háttérre kattintasz
+  lightbox.addEventListener('click', (e) => {
+    if (e.target === lightbox) {
+      hideLightbox();
+    }
+  });
+
+  // Billentyűzet vezérlés (Esc, balra, jobbra)
+  document.addEventListener('keydown', (e) => {
+    if (lightbox.classList.contains('visible')) {
+      if (e.key === 'Escape') hideLightbox();
+      if (e.key === 'ArrowLeft') showPrev();
+      if (e.key === 'ArrowRight') showNext();
+    }
   });
 });
