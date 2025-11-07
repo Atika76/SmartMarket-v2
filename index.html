@@ -4,61 +4,195 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>SmartMarket v2</title>
+
   <script src="https://cdn.tailwindcss.com"></script>
+  
   <script defer src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script defer src="./config.js"></script>
+  
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="apple-touch-icon" href="logo.png">
+  
+  <style>
+    /* Lightbox (Galéria) stílusok */
+    .lightbox-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+    .lightbox-overlay.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+    .lightbox-content {
+      position: relative;
+      max-width: 90vw;
+      max-height: 90vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .lightbox-image {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      border-radius: 8px;
+    }
+    .lightbox-close {
+      position: absolute;
+      top: -40px;
+      right: -20px;
+      font-size: 3rem;
+      color: white;
+      cursor: pointer;
+      line-height: 1;
+      font-weight: bold;
+    }
+    .lightbox-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(0, 0, 0, 0.5);
+      color: white;
+      border: none;
+      font-size: 2rem;
+      font-weight: bold;
+      cursor: pointer;
+      padding: 10px 15px;
+      border-radius: 50%;
+      user-select: none;
+      transition: background 0.2s;
+    }
+    .lightbox-nav:hover {
+      background: rgba(0, 0, 0, 0.8);
+    }
+    .lightbox-prev {
+      left: -60px;
+    }
+    .lightbox-next {
+      right: -60px;
+    }
+    .clickable-gallery {
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .clickable-gallery:hover {
+      opacity: 0.8;
+    }
+  </style>
+  
   <script defer src="./app.js"></script>
-  <link rel="icon" href="favicon.ico" />
+
 </head>
-<body class="bg-gray-50">
-  <header class="p-4 bg-white shadow flex justify-between items-center">
-    <h1 class="font-bold text-violet-700 text-xl">SmartMarket v2</h1>
-    <div>
-      <a href="./auth.html" id="loginLink" class="underline mr-2">Bejelentkezés</a>
-      <button id="logoutBtn" class="hidden border border-violet-600 rounded px-2 py-1 text-violet-600">Kijelentkezés</button>
-    </div>
-  </header>
-  <main class="max-w-6xl mx-auto p-4 grid lg:grid-cols-3 gap-6">
-    <section class="bg-white p-4 rounded-xl shadow space-y-3">
-      <h2 class="text-lg font-semibold">Új hirdetés</h2>
-      <form id="adForm" class="space-y-2">
-        <input id="title" placeholder="Cím *" required class="w-full border rounded p-2">
-        <textarea id="description" placeholder="Leírás *" required class="w-full border rounded p-2"></textarea>
-        <select id="category" required class="w-full border rounded p-2">
-          <option value="">Válassz...</option>
-          <option>Elektronika</option><option>Divat</option><option>Bútor</option>
-          <option>Szolgáltatás</option><option>Jármű</option><option>Ingatlan</option>
-          <option>Gyerek/Játék</option><option>Egyéb</option>
-        </select>
-        <input id="price" type="number" placeholder="Ár (Ft)" class="w-full border rounded p-2">
-        <input id="phone" placeholder="Telefonszám" class="w-full border rounded p-2">
-        <input id="website" placeholder="Weboldal" class="w-full border rounded p-2">
-        <input id="images" type="file" accept="image/*" multiple class="w-full">
-        <button type="button" id="aiSuggest" class="w-full border border-violet-600 text-violet-600 rounded py-2">🤖 AI hirdetés generálása</button>
-        <p id="aiLoading" class="hidden text-center text-blue-600 text-sm">Gemini generálás...</p>
-        <button type="submit" class="w-full bg-violet-600 text-white rounded py-2">Mentés</button>
-        <p id="adFormMsg" class="text-sm"></p>
-      </form>
-    </section>
-    <section class="lg:col-span-2 space-y-4">
-      <div class="bg-white p-4 rounded-xl shadow flex flex-wrap gap-3">
-        <input id="q" placeholder="Keresés..." class="border rounded p-2 flex-1 min-w-[150px]">
-        <select id="filterCategory" class="border rounded p-2">
-          <option value="">Összes</option>
-          <option>Elektronika</option><option>Divat</option><option>Bútor</option>
-          <option>Szolgáltatás</option><option>Jármű</option><option>Ingatlan</option>
-          <option>Gyerek/Játék</option><option>Egyéb</option>
-        </select>
-        <select id="sortBy" class="border rounded p-2">
-          <option value="date_desc">Legújabb</option>
-          <option value="price_asc">Ár ↑</option>
-          <option value="price_desc">Ár ↓</option>
-        </select>
-        <button id="searchBtn" class="border border-violet-600 text-violet-600 rounded px-4 py-2">Keresés</button>
+<body class="bg-slate-100">
+
+  <header class="bg-white shadow-md sticky top-0 z-40">
+    <nav class="container mx-auto px-4 py-3 flex justify-between items-center">
+      <a href="#" class="text-2xl font-bold text-violet-600 flex items-center gap-2">
+        <img src="logo.png" alt="SmartMarket Logó" class="h-8 w-8">
+        SmartMarket v2
+      </a>
+      <div class="flex items-center gap-4">
+        <a href="./auth.html" id="loginLink" class="text-sm font-medium text-gray-700 hover:text-violet-600">Bejelentkezés</a>
+        <button id="logoutBtn" class="hidden text-sm font-medium text-gray-700 hover:text-violet-600">Kijelentkezés</button>
       </div>
-      <div id="list" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-      <p id="emptyState" class="hidden text-center text-gray-500">Nincs találat.</p>
+    </nav>
+  </header>
+
+  <main class="container mx-auto p-4 grid grid-cols-1 md:grid-cols-3 gap-8 mt-4">
+
+    <aside class="md:col-span-1 bg-white p-6 rounded-lg shadow-lg h-fit sticky top-24">
+      <h2 class="text-2xl font-bold mb-5 text-violet-600">Új hirdetés</h2>
+      
+      <form id="adForm" class="space-y-4">
+        <div>
+          <label for="title" class="block text-sm font-medium text-gray-700">Cím *</label>
+          <input type="text" id="title" required class="mt-1 w-full border border-gray-300 rounded-md shadow-sm p-2">
+        </div>
+        <div>
+          <label for="description" class="block text-sm font-medium text-gray-700">Leírás *</label>
+          <textarea id="description" rows="5" required class="mt-1 w-full border border-gray-300 rounded-md shadow-sm p-2"></textarea>
+        </div>
+
+        <div class="relative">
+          <button type="button" id="aiSuggest" class="w-full flex items-center justify-center gap-2 text-sm text-violet-600 border border-violet-200 bg-violet-50 rounded-md p-2 hover:bg-violet-100 disabled:opacity-50">
+            <svg id="aiLoading" class="hidden animate-spin h-4 w-4 text-violet-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+            <span>🤖 AI hirdetés generálása</span>
+          </button>
+        </div>
+
+        <div>
+          <label for="category" class="block text-sm font-medium text-gray-700">Kategória *</label>
+          <select id="category" required class="mt-1 w-full border border-gray-300 rounded-md shadow-sm p-2">
+            <option value="">Válassz...</option>
+            <option value="Jármű">Jármű</option>
+            <option value="Ingatlan">Ingatlan</option>
+            <option value="Műszaki cikk">Műszaki cikk</option>
+            <option value="Divat, Ruha">Divat, Ruha</option>
+            <option value="Bútor">Bútor</option>
+            <option value="Szolgáltatás">Szolgáltatás</option>
+            <option value="Egyéb">Egyéb</option>
+          </select>
+        </div>
+        <div>
+          <label for="price" class="block text-sm font-medium text-gray-700">Ár (Ft)</label>
+          <input type="number" id="price" placeholder="Hagyd üresen, ha ingyenes" class="mt-1 w-full border border-gray-300 rounded-md shadow-sm p-2">
+        </div>
+        <div>
+          <label for="phone" class="block text-sm font-medium text-gray-700">Telefonszám</label>
+          <input type="tel" id="phone" class="mt-1 w-full border border-gray-300 rounded-md shadow-sm p-2">
+        </div>
+        <div>
+          <label for="website" class="block text-sm font-medium text-gray-700">Weboldal</label>
+          <input type="url" id="website" placeholder="https://" class="mt-1 w-full border border-gray-300 rounded-md shadow-sm p-2">
+        </div>
+        <div>
+          <label for="images" class="block text-sm font-medium text-gray-700">Képek (max 5 db)</label>
+          <input type="file" id="images" multiple accept="image/*" class="mt-1 w-full text-sm">
+        </div>
+        <button type="submit" class="w-full bg-violet-600 text-white rounded-md p-2 text-lg font-semibold hover:bg-violet-700">Mentés</button>
+        <p id="adFormMsg" class="text-center text-sm"></p>
+      </form>
+    </aside>
+
+    <section class="md:col-span-2">
+      <div class="bg-white p-4 rounded-lg shadow-lg mb-6 flex flex-col md:flex-row gap-4 items-center">
+        <input type="text" id="q" placeholder="Keresés a hirdetésekben..." class="w-full border border-gray-300 rounded-md p-2">
+        <select id="filterCategory" class="w-full md:w-auto border border-gray-300 rounded-md p-2">
+          <option value="">Összes</option>
+          <option value="Jármű">Jármű</option>
+          <option value="Ingatlan">Ingatlan</option>
+          <option value="Műszaki cikk">Műszaki cikk</option>
+          <option value="Divat, Ruha">Divat, Ruha</option>
+          <option value="Bútor">Bútor</option>
+          <option value="Szolgáltatás">Szolgáltatás</option>
+          <option value="Egyéb">Egyéb</option>
+        </select>
+        <select id="sortBy" class="w-full md:w-auto border border-gray-300 rounded-md p-2">
+          <option value="created_at">Legújabb</option>
+          <option value="price_asc">Ár (növ.)</option>
+          <option value="price_desc">Ár (csökk.)</option>
+        </select>
+        <button id="searchBtn" class="w-full md:w-auto bg-violet-600 text-white rounded-md p-2 px-6">Keresés</button>
+      </div>
+
+      <div id="list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        </div>
+      
+      <div id="emptyState" class="hidden text-center text-gray-500 mt-10">
+        <h3 class="text-xl font-semibold">Nincs találat.</h3>
+        <p>Próbálj más keresési feltételeket, vagy tölts fel te egy új hirdetést!</p>
+      </div>
     </section>
+
   </main>
-</body>
+  
+  </body>
 </html>
