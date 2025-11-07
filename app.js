@@ -67,13 +67,27 @@ document.addEventListener('DOMContentLoaded', ()=>{
       });
       
       if(error)throw error;
-      msg.className='text-green-600 text-sm'; msg.textContent='Sikeresen mentve!'; e.target.reset(); loadList();
+      msg.className='text-green-600 text-sm'; msg.textContent='Sikeresen mentve!'; 
+      e.target.reset(); 
+      loadList();
+      
+      // *** ÚJ: Mobilon sikeres mentés után visszavált a listára ***
+      if (window.innerWidth < 768) {
+        showMobileView('list');
+      }
+
     }catch(err){ msg.className='text-red-600 text-sm'; msg.textContent='Hiba: '+err.message; }
   });
 });
 
 // Lista (ADMIN TÖRLÉSSEL és GALÉRIÁVAL)
 async function loadList(){
+  // *** ÚJ: Mobilon ne töltsük be a listát, ha az űrlap van nyitva ***
+  const formContainer = document.getElementById('form-container');
+  if (window.innerWidth < 768 && formContainer && !formContainer.classList.contains('hidden')) {
+    return; // Ne töltsük be a listát a háttérben, ha az űrlapot nézzük mobilon
+  }
+
   const q=document.getElementById('q').value.trim();
   const cat=document.getElementById('filterCategory').value;
   const sort=document.getElementById('sortBy').value;
@@ -97,21 +111,16 @@ async function loadList(){
   empty.classList.add('hidden');
   
   data.forEach(ad=>{
-    // *** GALÉRIA JAVÍTÁS KEZDETE ***
     const hasImages = ad.kepek && ad.kepek.length > 0;
     const coverImage = hasImages ? ad.kepek[0] : 'https://images.unsplash.com/photo-1523275335684-37898b6baf30';
-    
-    // JSON stringgé alakítjuk a képlista átadásához
     const imagesData = hasImages ? JSON.stringify(ad.kepek) : '[]';
     
-    // A kép kattinthatóvá tétele, ha van kép
     const imageHtml = `
       <img 
         src="${coverImage}" 
         class="h-40 w-full object-cover ${hasImages ? 'clickable-gallery' : ''}"
         ${hasImages ? `data-images='${imagesData}'` : ''}
       >`;
-    // *** GALÉRIA JAVÍTÁS VÉGE ***
 
     const price=ad.ar?new Intl.NumberFormat('hu-HU').format(ad.ar)+' Ft':'–';
 
@@ -127,7 +136,8 @@ async function loadList(){
     }
 
     list.innerHTML+=`<article class="bg-white rounded shadow overflow-hidden flex flex-col">
-      ${imageHtml} <div class="p-3 flex-1 flex flex-col">
+      ${imageHtml}
+      <div class="p-3 flex-1 flex flex-col">
         <div class="text-xs text-violet-700">${ad.kategoria||''}</div>
         <h3 class="font-semibold">${ad.cim}</h3>
         <p class="text-sm text-gray-600 flex-1">${ad.leiras||''}</p>
@@ -251,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target && e.target.classList.contains('clickable-gallery')) {
       const images = JSON.parse(e.target.dataset.images);
       if (images && images.length > 0) {
-        showLightbox(images, 0); // Mindig az első képpel kezdjük a galériát
+        showLightbox(images, 0);
       }
     }
   });
@@ -276,4 +286,44 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.key === 'ArrowRight') showNext();
     }
   });
+});
+
+
+// *** ÚJ FUNKCIÓ: Mobilnézet váltása (Űrlap/Lista) ***
+function showMobileView(viewToShow) {
+  const formContainer = document.getElementById('form-container');
+  const listContainer = document.getElementById('list-container');
+  const fab = document.getElementById('show-form-fab');
+
+  if (!formContainer || !listContainer || !fab) return;
+
+  if (viewToShow === 'form') {
+    listContainer.classList.add('hidden');
+    formContainer.classList.remove('hidden');
+    fab.classList.add('hidden');
+    window.scrollTo(0, 0); // Ugrás az űrlap tetejére
+  } else { // 'list'
+    listContainer.classList.remove('hidden');
+    formContainer.classList.add('hidden');
+    fab.classList.remove('hidden');
+    loadList(); // Frissítjük a listát, amikor visszatérünk
+  }
+}
+
+// Eseményfigyelők a mobil gombokhoz
+document.addEventListener('DOMContentLoaded', () => {
+  const fab = document.getElementById('show-form-fab');
+  const cancelBtn = document.getElementById('cancel-form-btn');
+  
+  if (fab) {
+    fab.addEventListener('click', () => showMobileView('form'));
+  }
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => showMobileView('list'));
+  }
+
+  // Alapértelmezett állapot beállítása betöltéskor
+  if (window.innerWidth < 768) {
+     showMobileView('list');
+  }
 });
