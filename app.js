@@ -5,7 +5,7 @@ const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // *** Admin email cím ***
 const ADMIN_EMAIL = 'atika.76@windowslive.com';
 
-// *** ÚJ: Képfeltöltő gyűjtő tömb ***
+// *** Képfeltöltő gyűjtő tömb ***
 let selectedFiles = [];
 const MAX_FILES = 5;
 
@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
-// Képfeltöltés (MÁR A "selectedFiles" TÖMBBŐL DOLGOZIK)
+// Képfeltöltés (a "selectedFiles" tömbből dolgozik)
 async function uploadImages(files){
   const urls=[];
   const max=Math.min(files.length, MAX_FILES);
@@ -37,7 +37,7 @@ async function uploadImages(files){
   return urls;
 }
 
-// Mentés (MÓDOSÍTVA: A "selectedFiles" TÖMBÖT HASZNÁLJA)
+// Mentés (a "selectedFiles" tömböt használja)
 document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('adForm').addEventListener('submit',async(e)=>{
     e.preventDefault();
@@ -50,7 +50,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const phone=document.getElementById('phone').value.trim()||null;
     const web=document.getElementById('website').value.trim()||null;
     
-    // *** JAVÍTÁS: A "selectedFiles" globális tömböt használja, nem az inputot ***
     const files = selectedFiles; 
     
     try{
@@ -77,13 +76,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
       msg.className='text-green-600 text-sm'; msg.textContent='Sikeresen mentve!'; 
       e.target.reset();
       
-      // *** ÚJ: ürítjük a fájlgyűjtőt és az előnézetet ***
       selectedFiles = [];
       renderFilePreviews();
       
       loadList();
       
-      // Mobilon sikeres mentés után visszavált a listára
       if (window.innerWidth < 768) {
         showMobileView('list');
       }
@@ -100,7 +97,7 @@ async function loadList(){
   }
 
   const q=document.getElementById('q').value.trim();
-  const cat=document.getElementById('category').value;
+  const cat=document.getElementById('filterCategory').value;
   const sort=document.getElementById('sortBy').value;
   let query=supa.from('hirdetesek').select('*');
   if(q)query=query.or(`cim.ilike.%${q}%,leiras.ilike.%${q}%`);
@@ -351,7 +348,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
-// *** ÚJ FUNKCIÓ: Képfeltöltés (egyesével) ***
+// *** JAVÍTVA: Képfeltöltés (egyesével) és Optimalizálás ***
 
 // Kép-előnézetek kirajzolása
 function renderFilePreviews() {
@@ -377,8 +374,8 @@ function renderFilePreviews() {
   });
 }
 
-// Kép hozzáadása a gyűjtőhöz
-function handleFileSelection(event) {
+// Kép hozzáadása a gyűjtőhöz (OPTIMALIZÁLÁSSAL)
+async function handleFileSelection(event) {
   const newFiles = Array.from(event.target.files);
   const totalFiles = selectedFiles.length + newFiles.length;
 
@@ -387,12 +384,32 @@ function handleFileSelection(event) {
     event.target.value = ''; // Input kiürítése
     return;
   }
-
-  selectedFiles.push(...newFiles);
-  renderFilePreviews();
   
-  // Input kiürítése, hogy újra lehessen választani (akár ugyanazt is, ha töröltük)
-  event.target.value = ''; 
+  // Visszajelzés a felhasználónak
+  const msg = document.getElementById('adFormMsg');
+  const options = {
+    maxSizeMB: 1,          // Max 1 MB méret
+    maxWidthOrHeight: 1280,  // Max 1280px szélesség/magasság
+    useWebWorker: true     // Gyorsabb feldolgozás
+  };
+  
+  msg.textContent = 'Képek optimalizálása...';
+  msg.className = 'text-sm text-violet-600';
+
+  try {
+    for (const file of newFiles) {
+      // Várjuk meg, amíg a tömörítés befejeződik
+      const compressedFile = await imageCompression(file, options);
+      selectedFiles.push(compressedFile); // A tömörített fájlt adjuk hozzá
+    }
+    renderFilePreviews(); // Újrarajzoljuk az előnézetet
+  } catch (error) {
+    console.error('Képtömörítési hiba:', error);
+    alert('Hiba a képek optimalizálása során. Próbálja újra.');
+  } finally {
+    msg.textContent = ''; // Üzenet eltávolítása
+    event.target.value = ''; // Input kiürítése, hogy újra lehessen választani
+  }
 }
 
 // Eseményfigyelők a képkezeléshez
