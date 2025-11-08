@@ -40,8 +40,8 @@
     
     .lightbox-content {
       position: relative;
-      max-width: 50vw; /* Kisebb lett (70 -> 50) */
-      max-height: 50vh; /* Kisebb lett (70 -> 50) */
+      max-width: 50vw; /* 50%-ra csökkentve */
+      max-height: 50vh; /* 50%-ra csökkentve */
       display: flex;
       align-items: center;
       justify-content: center;
@@ -54,19 +54,30 @@
       border-radius: 8px;
     }
     
-    /* *** JAVÍTVA: Az "X" gomb pozíciója a képen belülre került *** */
+    /* *** JAVÍTVA: Az "X" gomb hátteret kapott, hogy mindig látszódjon *** */
     .lightbox-close {
       position: absolute;
-      top: 10px; /* Kicsit beljebb felülről */
-      right: 10px; /* Kicsit beljebb jobbról */
-      font-size: 2.5rem; /* Kicsit kisebb, hogy ne lógjon ki annyira */
+      top: 10px;
+      right: 10px;
+      font-size: 1.5rem; /* Kisebb lett a betűméret */
       color: white;
-      text-shadow: 0 0 5px rgba(0,0,0,0.8); /* Jobban látható a világos képeken */
       cursor: pointer;
       line-height: 1;
       font-weight: bold;
-      z-index: 1001; /* Biztos, hogy a kép felett van */
+      z-index: 1001;
+      background: rgba(0, 0, 0, 0.5); /* Félátlátszó fekete háttér */
+      width: 36px; /* Kör alakhoz */
+      height: 36px; /* Kör alakhoz */
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
     }
+    .lightbox-close:hover {
+      background: rgba(0, 0, 0, 0.8);
+    }
+    /* *** JAVÍTÁS VÉGE *** */
 
     .lightbox-nav {
       position: absolute;
