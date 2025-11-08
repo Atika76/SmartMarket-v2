@@ -34,7 +34,7 @@ async function uploadImages(files){
   return urls;
 }
 
-// Mentés (MÓDOSÍTVA: Helymeghatározással)
+// Mentés (Helymeghatározással)
 document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('adForm').addEventListener('submit',async(e)=>{
     e.preventDefault();
@@ -47,16 +47,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const phone=document.getElementById('phone').value.trim()||null;
     const web=document.getElementById('website').value.trim()||null;
     
-    // *** ÚJ MEZŐK OLVASÁSA ***
     const zip=document.getElementById('zip_code').value.trim()||null;
     const city=document.getElementById('city').value.trim();
 
     if (!city) {
         msg.className='text-red-600 text-sm'; 
         msg.textContent='Hiba: A Város megadása kötelező!';
-        return; // Leállítjuk a mentést
+        return; 
     }
-    // *** JAVÍTÁS VÉGE ***
     
     const files = selectedFiles; 
     
@@ -77,8 +75,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
         ar:price, 
         telefon:phone, 
         weboldal:web,
-        iranyitoszam: zip, // ÚJ
-        varos: city,       // ÚJ
+        iranyitoszam: zip, 
+        varos: city,       
         kepek:urls 
       });
       
@@ -97,7 +95,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 });
 
-// Lista (MÓDOSÍTVA: Helymeghatározással)
+// Lista (Helymeghatározással)
 async function loadList(){
   const formContainer = document.getElementById('form-container');
   if (window.innerWidth < 768 && formContainer && !formContainer.classList.contains('hidden')) {
@@ -107,15 +105,11 @@ async function loadList(){
   const q=document.getElementById('q').value.trim();
   const cat=document.getElementById('filterCategory').value;
   const sort=document.getElementById('sortBy').value;
-  
-  // *** ÚJ: Város szűrő olvasása ***
   const cityFilter = document.getElementById('filterCity').value.trim();
   
   let query=supa.from('hirdetesek').select('*');
   if(q)query=query.or(`cim.ilike.%${q}%,leiras.ilike.%${q}%`);
   if(cat)query=query.eq('kategoria',cat);
-  
-  // *** ÚJ: Város szűrő alkalmazása ***
   if(cityFilter) query = query.ilike('varos', `%${cityFilter}%`);
   
   if(sort==='price_asc')query=query.order('ar',{ascending:true});
@@ -174,13 +168,24 @@ async function loadList(){
   });
 }
 
-// Keresés és Törlés eseményfigyelői
+// *** JAVÍTOTT Kereső Eseményfigyelők ***
 document.addEventListener('DOMContentLoaded',()=>{
+  // A "Keresés" gomb kattintásra futtatja a loadList-et
   document.getElementById('searchBtn').addEventListener('click',loadList);
-  // *** ÚJ: A filterCity mezőt is figyeljük ***
-  ['q','filterCategory','sortBy', 'filterCity'].forEach(id=>document.getElementById(id).addEventListener('change',loadList));
-  loadList();
+  
+  // A dropdownok (select) változásra futtatják a loadList-et
+  ['filterCategory','sortBy'].forEach(id => {
+      if (document.getElementById(id)) {
+          document.getElementById(id).addEventListener('change', loadList);
+      }
+  });
 
+  // A szöveges mezők (q, filterCity) NEM indítanak keresést,
+  // azokat majd a "Keresés" gomb fogja beolvasni.
+  
+  loadList(); // Első lista betöltés
+
+  // Törlés gomb eseményfigyelő
   document.getElementById('list').addEventListener('click', async (e) => {
     if (e.target && e.target.classList.contains('delete-btn')) {
       e.preventDefault();
