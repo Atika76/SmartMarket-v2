@@ -466,7 +466,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// *** PROFIL OLDAL KEZELÉSE ÉS SZERKESZTÉSE ***
+// *** PROFIL OLDAL KEZELÉSE (JAVÍTVA ÉRTÉKELÉSEKKEL) ***
 
 let selectedAvatarFile = null;
 
@@ -477,6 +477,7 @@ function showMainPage() {
   loadList(); 
 }
 
+// *** JAVÍTVA: Átlagos értékelést számol és megjeleníti az űrlapot ***
 async function showProfilePage(userId) {
   const mainContent = document.getElementById('main-content');
   const profileContainer = document.getElementById('profile-page-container');
@@ -491,6 +492,7 @@ async function showProfilePage(userId) {
     const currentUserId = session?.user?.id;
     const isOwnProfile = userId === currentUserId;
 
+    // 1. Profiladatok lekérése
     const { data: profile, error: profileError } = await supa
       .from('profiles')
       .select('username, bio, avatar_url')
@@ -499,17 +501,43 @@ async function showProfilePage(userId) {
 
     if (profileError) throw profileError;
     
+    // 2. A felhasználó hirdetéseinek lekérése
     const { data: ads, error: adsError } = await supa
       .from('hirdetesek')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
-
     if (adsError) throw adsError;
     
+    // *** ÚJ: Értékelések lekérése ***
+    // Lekérjük az értékeléseket ÉS a profilt, aki írta
+    const { data: reviews, error: reviewsError } = await supa
+      .from('reviews')
+      .select(`
+        rating, 
+        comment, 
+        created_at,
+        profiles ( username ) 
+      `)
+      .eq('profile_id', userId)
+      .order('created_at', { ascending: false });
+    if (reviewsError) throw reviewsError;
+    
+    // *** ÚJ: Átlag és csillagok kiszámítása ***
+    let averageRating = 0;
+    if (reviews.length > 0) {
+      const sum = reviews.reduce((acc, review) => acc + review.rating, 0);
+      averageRating = (sum / reviews.length).toFixed(1);
+    }
+    // "Tele" csillagok: ⭐, "Üres" csillagok: ☆
+    const starsHtml = '⭐'.repeat(Math.round(averageRating)) + '☆'.repeat(5 - Math.round(averageRating));
+    
+    
+    // 3. Profiloldal kirajzolása
     const username = profile.username ? profile.username.split('@')[0] : 'Névtelen';
     const avatar = profile.avatar_url || 'https://via.placeholder.com/150'; 
     
+    // Hirdetések HTML
     let adsHtml = '<h3 class="text-2xl font-semibold mb-4">Eladó hirdetései</h3>';
     if (ads.length === 0) {
       adsHtml += '<p class="text-gray-500">Ennek a felhasználónak még nincsenek aktív hirdetései.</p>';
@@ -535,11 +563,67 @@ async function showProfilePage(userId) {
       });
       adsHtml += '</div>';
     }
+    
+    // *** ÚJ: Értékelés űrlap HTML ***
+    let reviewFormHtml = '';
+    if (currentUserId && !isOwnProfile) { // Csak bejelentkezve és más profiljánál
+      reviewFormHtml = `
+        <div class="mt-8 border-t pt-6">
+          <h3 class="text-2xl font-semibold mb-4">Értékelés írása</h3>
+          <form id="review-form" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Értékelés (1-5)</label>
+              <select id="review-rating" required class="mt-1 w-full border border-gray-300 rounded-md shadow-sm p-2">
+                <option value="">Válassz...</option>
+                <option value="5">5 csillag (Kiváló)</option>
+                <option value="4">4 csillag (Jó)</option>
+                <option value="3">3 csillag (Átlagos)</option>
+                <option value="2">2 csillag (Elmegy)</option>
+                <option value="1">1 csillag (Rossz)</option>
+              </select>
+            </div>
+            <div>
+              <label for="review-comment" class="block text-sm font-medium text-gray-700">Vélemény (max 500 karakter)</label>
+              <textarea id="review-comment" rows="3" maxlength="500" class="mt-1 w-full border border-gray-300 rounded-md shadow-sm p-2"></textarea>
+            </div>
+            <button type="submit" class="w-full bg-violet-600 text-white rounded-md p-2 font-semibold hover:bg-violet-700">Értékelés elküldése</button>
+            <p id="review-form-msg" class="text-center text-sm"></p>
+          </form>
+        </div>
+      `;
+    }
+    
+    // *** ÚJ: Értékelések listája HTML ***
+    let reviewsHtml = '<h3 class="text-2xl font-semibold mb-4">Értékelések</h3>';
+    if (reviews.length === 0) {
+      reviewsHtml += '<p class="text-gray-500">Ennek a felhasználónak még nincsenek értékelései.</p>';
+    } else {
+      reviewsHtml += '<div class="space-y-4">';
+      reviews.forEach(review => {
+        const raterName = review.profiles?.username ? review.profiles.username.split('@')[0] : 'Névtelen';
+        const reviewStars = '⭐'.repeat(review.rating) + '☆'.repeat(5 - review.rating);
+        reviewsHtml += `
+          <div class="border-b pb-4">
+            <div class="flex justify-between items-center mb-1">
+              <span class="font-semibold">${raterName}</span>
+              <span class="text-sm text-gray-500">${new Date(review.created_at).toLocaleDateString('hu-HU')}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-yellow-500">${reviewStars}</span>
+              <span class="text-gray-700">${review.comment || ''}</span>
+            </div>
+          </div>
+        `;
+      });
+      reviewsHtml += '</div>';
+    }
+
 
     const editButtonHtml = isOwnProfile 
       ? `<button id="edit-profile-btn" class="bg-violet-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-violet-700">Profil szerkesztése</button>`
       : '';
 
+    // A teljes profiloldal HTML-je
     profileContainer.innerHTML = `
       <div class="bg-white p-6 md:p-8 rounded-lg shadow-lg max-w-5xl mx-auto">
         <button id="back-to-list-btn" class="inline-block text-violet-600 hover:text-violet-800 mb-6">&larr; Vissza a listához</button>
@@ -548,14 +632,70 @@ async function showProfilePage(userId) {
           <img src="${avatar}" alt="Profilkép" class="w-32 h-32 rounded-full object-cover border-4 border-violet-100">
           <div class="flex-1 text-center md:text-left">
             <h1 class="text-4xl font-bold">${username}</h1>
+            <div class="mt-2 text-xl text-yellow-500" title="Átlagos értékelés: ${averageRating} / 5">
+              ${starsHtml} <span class="text-sm text-gray-500">(${reviews.length} értékelés)</span>
+            </div>
             <p class="text-lg text-gray-600 mt-2">${profile.bio || 'Ez a felhasználó még nem adott meg bemutatkozást.'}</p>
           </div>
           ${editButtonHtml}
         </div>
         
-        ${adsHtml}
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div class="lg:col-span-1 space-y-6">
+            ${reviewsHtml}
+            ${reviewFormHtml}
+          </div>
+          <div class="lg:col-span-2">
+            ${adsHtml}
+          </div>
+        </div>
+        
       </div>
     `;
+    
+    // *** ÚJ: Eseményfigyelő az értékelés űrlaphoz ***
+    const reviewForm = document.getElementById('review-form');
+    if (reviewForm) {
+      reviewForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const msg = document.getElementById('review-form-msg');
+        msg.textContent = 'Mentés...';
+        msg.className = 'text-sm text-violet-600';
+        
+        try {
+          const { data: { user } } = await supa.auth.getUser();
+          if (!user) throw new Error('A értékeléshez be kell jelentkezned.');
+          
+          const rating = document.getElementById('review-rating').value;
+          const comment = document.getElementById('review-comment').value.trim() || null;
+          
+          if (!rating) throw new Error('Az értékelés (csillagok) megadása kötelező.');
+
+          const { error } = await supa.from('reviews').insert({
+            profile_id: userId, // A profil ID-ja, akit értékelünk
+            rater_id: user.id,  // A mi ID-nk (aki írja)
+            rating: parseInt(rating),
+            comment: comment
+          });
+          
+          if (error) throw error;
+          
+          msg.textContent = 'Értékelés elmentve!';
+          msg.className = 'text-sm text-green-600';
+          e.target.reset();
+          
+          // Oldal újratöltése, hogy frissüljön az átlag és a lista
+          setTimeout(() => {
+            showProfilePage(userId);
+          }, 1500);
+
+        } catch (err) {
+          console.error('Értékelés mentési hiba:', err);
+          msg.textContent = `Hiba: ${err.message}`;
+          msg.className = 'text-sm text-red-600';
+        }
+      });
+    }
     
   } catch (err) {
     console.error('Hiba a profiloldal betöltésekor:', err);
@@ -648,7 +788,6 @@ async function handleAvatarPreview(event) {
   }
 }
 
-// *** JAVÍTVA: A profilkép feltöltési útvonala ***
 async function handleProfileUpdate(event) {
   event.preventDefault();
   const msg = document.getElementById('profile-edit-msg');
@@ -665,11 +804,10 @@ async function handleProfileUpdate(event) {
     let avatarUrl = null;
     
     if (selectedAvatarFile) {
-      // *** JAVÍTÁS: A 'public/' prefix eltávolítva. A Supabase-nek a user ID-val kell kezdeni. ***
       const filePath = `${user.id}/${Date.now()}-${selectedAvatarFile.name}`;
       
       const { data: uploadData, error: uploadError } = await supa.storage
-        .from('avatars') // A profilkép 'avatars' bucket-be megy
+        .from('avatars') 
         .upload(filePath, selectedAvatarFile, {
           cacheControl: '3600',
           upsert: true 
@@ -744,7 +882,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (cancelEditButton) {
       e.preventDefault();
-      // Mivel a getUser() aszinkron, itt inkább a session-ből vesszük az ID-t
       supa.auth.getSession().then(({ data: { session } }) => {
         if (session) showProfilePage(session.user.id);
       });
