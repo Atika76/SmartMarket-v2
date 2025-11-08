@@ -138,6 +138,7 @@
             <span>Leírás generálása</span>
           </button>
         </div>
+
         <div>
           <label for="category" class="block text-sm font-medium text-gray-700">Kategória *</label>
           <select id="category" required class="mt-1 w-full border border-gray-300 rounded-md shadow-sm p-2">
@@ -163,15 +164,17 @@
           <label for="website" class="block text-sm font-medium text-gray-700">Weboldal</label>
           <input type="url" id="website" placeholder="https://" class="mt-1 w-full border border-gray-300 rounded-md shadow-sm p-2">
         </div>
+        
         <div>
-          <label for="images" class="block text-sm font-medium text-gray-700">Képek (max 5 db)</label>
-          <input type="file" id="images" multiple accept="image/*" class="mt-1 w-full text-sm">
+          <label class="block text-sm font-medium text-gray-700">Képek (max 5 db)</label>
+          <label for="images" class="mt-1 w-full inline-block cursor-pointer text-sm text-violet-600 bg-violet-50 border border-violet-200 rounded-md p-2 hover:bg-violet-100">
+            + Képek hozzáadása...
+          </label>
+          <input type="file" id="images" multiple accept="image/*" class="hidden"> <div id="image-previews" class="mt-2 grid grid-cols-3 sm:grid-cols-4 gap-2">
+            </div>
         </div>
-        
         <button type="submit" class="w-full bg-violet-600 text-white rounded-md p-2 text-lg font-semibold hover:bg-violet-700">Mentés</button>
-        
         <button type="button" id="cancel-form-btn" class="md:hidden w-full bg-gray-500 text-white rounded-md p-2 mt-2 hover:bg-gray-600">Mégse</button>
-        
         <p id="adFormMsg" class="text-center text-sm"></p>
       </form>
     </aside>
