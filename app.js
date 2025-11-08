@@ -2,7 +2,10 @@ const { SUPABASE_URL, SUPABASE_ANON_KEY, BUCKET, EDGE_FUNCTION_URL } = window.__
 const { createClient } = supabase;
 const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// *** Admin email cím ***
 const ADMIN_EMAIL = 'atika.76@windowslive.com';
+
+// *** Képfeltöltő gyűjtő tömb ***
 let selectedFiles = [];
 const MAX_FILES = 5;
 
@@ -19,7 +22,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
-// Képfeltöltés (Optimalizálva)
+// Képfeltöltés (a "selectedFiles" tömbből dolgozik)
 async function uploadImages(files){
   const urls=[];
   const max=Math.min(files.length, MAX_FILES);
@@ -34,7 +37,7 @@ async function uploadImages(files){
   return urls;
 }
 
-// Mentés
+// Mentés (a "selectedFiles" tömböt használja)
 document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('adForm').addEventListener('submit',async(e)=>{
     e.preventDefault();
@@ -46,6 +49,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const price=document.getElementById('price').value?parseInt(document.getElementById('price').value):null;
     const phone=document.getElementById('phone').value.trim()||null;
     const web=document.getElementById('website').value.trim()||null;
+    
     const files = selectedFiles; 
     
     try{
@@ -71,8 +75,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
       if(error)throw error;
       msg.className='text-green-600 text-sm'; msg.textContent='Sikeresen mentve!'; 
       e.target.reset();
+      
       selectedFiles = [];
       renderFilePreviews();
+      
       loadList();
       
       if (window.innerWidth < 768) {
@@ -153,8 +159,9 @@ async function loadList(){
 document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('searchBtn').addEventListener('click',loadList);
   ['q','filterCategory','sortBy'].forEach(id=>document.getElementById(id).addEventListener('change',loadList));
-  loadList();
+  loadList(); // Első lista betöltés
 
+  // Törlés gomb eseményfigyelő
   document.getElementById('list').addEventListener('click', async (e) => {
     if (e.target && e.target.classList.contains('delete-btn')) {
       e.preventDefault();
@@ -173,50 +180,53 @@ document.addEventListener('DOMContentLoaded',()=>{
   });
 });
 
-// *** JAVÍTVA: Gemini AI (A SzakiPiac kódjához igazítva) ***
+// Gemini AI (JAVÍTVA: Ellenőrzés, hogy létezik-e a gomb)
 document.addEventListener('DOMContentLoaded',()=>{
   const aiBtn=document.getElementById('aiSuggest');
-  const aiLoading=document.getElementById('aiLoading');
-  const keywordsInput = document.getElementById('aiKeywords'); 
-  const titleInput = document.getElementById('title'); // <-- Cél: a cím
-  const descInput = document.getElementById('description'); // <-- Cél: a leírás
   
-  aiBtn.addEventListener('click',async()=>{
-    const keywords = keywordsInput.value.trim(); 
-    if(!keywords){alert('Adj meg kulcsszavakat a generáláshoz!');return;} 
+  // *** EZ AZ ÚJ ELLENŐRZÉS ***
+  // Csak akkor adjuk hozzá az eseményfigyelőt, ha a gomb létezik (nincs elrejtve)
+  if (aiBtn) {
+    const aiLoading=document.getElementById('aiLoading');
+    const keywordsInput = document.getElementById('aiKeywords'); 
+    const titleInput = document.getElementById('title'); 
+    const descInput = document.getElementById('description'); 
     
-    aiLoading.classList.remove('hidden');aiBtn.disabled=true;
-    try{
-      // JAVÍTVA: A 'query'-t küldjük, ahogy a proxy (a SzakiPiac kódja) várja
-      const res=await fetch(EDGE_FUNCTION_URL,{
-        method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_ANON_KEY}`},
-        body:JSON.stringify({ query: keywords }) // 'query'-t küldünk
-      });
+    aiBtn.addEventListener('click',async()=>{
+      const keywords = keywordsInput.value.trim(); 
+      if(!keywords){alert('Adj meg kulcsszavakat a generáláshoz!');return;} 
       
-      if(!res.ok) {
-        const errorBody = await res.json().catch(() => ({ error: 'Ismeretlen válasz' }));
-        console.error('Gemini API hiba:', errorBody);
-        throw new Error(`Gemini API hiba (${res.status}): ${errorBody.error || 'Ismeretlen hiba'}`);
+      aiLoading.classList.remove('hidden');aiBtn.disabled=true;
+      try{
+        const res=await fetch(EDGE_FUNCTION_URL,{
+          method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_ANON_KEY}`},
+          body:JSON.stringify({ query: keywords }) 
+        });
+        
+        if(!res.ok) {
+          const errorBody = await res.json().catch(() => ({ error: 'Ismeretlen válasz' }));
+          console.error('Gemini API hiba:', errorBody);
+          throw new Error(`Gemini API hiba (${res.status}): ${errorBody.error || 'Ismeretlen hiba'}`);
+        }
+        
+        const data=await res.json();
+        
+        if (data.title && data.description) {
+          titleInput.value = data.title;
+          descInput.value = data.description;
+        } else {
+          console.error('Nincs cím/leírás a Gemini válaszában:', data);
+          alert('Nincs válasz a hiba miatt.');
+        }
+      }catch(err){
+        console.error('Hiba az AI generáláskor:', err);
+        alert('Hiba: '+err.message);
+      }finally{
+        aiLoading.classList.add('hidden');aiBtn.disabled=false;
       }
-      
-      const data=await res.json();
-      
-      // JAVÍTVA: A 'title' és 'description' mezőket várjuk
-      if (data.title && data.description) {
-        titleInput.value = data.title;
-        descInput.value = data.description;
-      } else {
-        console.error('Nincs cím/leírás a Gemini válaszában:', data);
-        alert('Nincs válasz a hiba miatt.');
-      }
-    }catch(err){
-      console.error('Hiba az AI generáláskor:', err);
-      alert('Hiba: '+err.message);
-    }finally{
-      aiLoading.classList.add('hidden');aiBtn.disabled=false;
-    }
-  });
+    });
+  } // *** Itt ér véget az 'if (aiBtn)' ellenőrzés ***
 });
 
 
@@ -303,6 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+
 // Mobilnézet váltása (Űrlap/Lista)
 function showMobileView(viewToShow) {
   const formContainer = document.getElementById('form-container');
@@ -340,6 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
      showMobileView('list');
   }
 });
+
 
 // Képfeltöltés (egyesével) és Optimalizálás
 function renderFilePreviews() {
