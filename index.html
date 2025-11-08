@@ -18,7 +18,7 @@
   <link rel="apple-touch-icon" href="logo.png">
   
   <style>
-    /* ... (Itt vannak a galéria stílusai) ... */
+    /* Lightbox (Galéria) stílusok */
     .lightbox-overlay {
       position: fixed;
       inset: 0;
@@ -35,14 +35,17 @@
       opacity: 1;
       visibility: visible;
     }
+    
+    /* *** JAVÍTVA: A galéria mérete 60%-ra csökkentve *** */
     .lightbox-content {
       position: relative;
-      max-width: 70vw; /* 70%-ra csökkentve */
-      max-height: 70vh; /* 70%-ra csökkentve */
+      max-width: 60vw; /* Kisebb lett (70 -> 60) */
+      max-height: 60vh; /* Kisebb lett (70 -> 60) */
       display: flex;
       align-items: center;
       justify-content: center;
     }
+    
     .lightbox-image {
       max-width: 100%;
       max-height: 100%;
@@ -170,9 +173,12 @@
           <label for="images" class="mt-1 w-full inline-block cursor-pointer text-sm text-violet-600 bg-violet-50 border border-violet-200 rounded-md p-2 hover:bg-violet-100">
             + Képek hozzáadása...
           </label>
-          <input type="file" id="images" multiple accept="image/*" class="hidden"> <div id="image-previews" class="mt-2 grid grid-cols-3 sm:grid-cols-4 gap-2">
+          <input type="file" id="images" multiple accept="image/*" class="hidden"> 
+          
+          <div id="image-previews" class="mt-2 grid grid-cols-3 sm:grid-cols-4 gap-2">
             </div>
         </div>
+        
         <button type="submit" class="w-full bg-violet-600 text-white rounded-md p-2 text-lg font-semibold hover:bg-violet-700">Mentés</button>
         <button type="button" id="cancel-form-btn" class="md:hidden w-full bg-gray-500 text-white rounded-md p-2 mt-2 hover:bg-gray-600">Mégse</button>
         <p id="adFormMsg" class="text-center text-sm"></p>
