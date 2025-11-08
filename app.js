@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const logoutBtn = document.getElementById('logoutBtn');
   if (session) {
     loginLink.textContent = session.user.email;
-    loginLink.href = '#'; // Profil link (később)
+    loginLink.href = '#'; 
     logoutBtn.classList.remove('hidden');
     logoutBtn.onclick = async ()=>{ await supa.auth.signOut(); location.reload(); };
   }
@@ -25,7 +25,7 @@ async function uploadImages(files){
   const max=Math.min(files.length, MAX_FILES);
   for(let i=0;i<max;i++){
     const f=files[i];
-    const key=`public/${Date.now()}-${Math.random().toString(36).slice(2)}-${f.name}`; // public mappába
+    const key=`public/${Date.now()}-${Math.random().toString(36).slice(2)}-${f.name}`; 
     const { data, error } = await supa.storage.from(BUCKET).upload(key,f);
     if(error)throw error;
     const { data:pub } = supa.storage.from(BUCKET).getPublicUrl(data.path);
@@ -158,7 +158,6 @@ async function loadList(){
         </button>`;
     }
     
-    // Eladó nevének lekérése (és az ID átadása a linknek)
     const sellerName = ad.profiles?.username ? ad.profiles.username.split('@')[0] : 'Névtelen';
     const sellerId = ad.profiles?.id || null;
     
@@ -467,36 +466,31 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// *** ÚJ FUNKCIÓK: PROFIL OLDAL KEZELÉSE ÉS SZERKESZTÉSE ***
+// *** PROFIL OLDAL KEZELÉSE ÉS SZERKESZTÉSE ***
 
-// Globális változó a profilkép fájlnak
 let selectedAvatarFile = null;
 
-// Megjeleníti a főoldalt (lista és űrlap)
 function showMainPage() {
   document.getElementById('main-content').classList.remove('hidden');
   document.getElementById('profile-page-container').classList.add('hidden');
-  document.getElementById('profile-page-container').innerHTML = ''; // Kiürítjük a profil oldalt
-  loadList(); // Frissítjük a listát
+  document.getElementById('profile-page-container').innerHTML = ''; 
+  loadList(); 
 }
 
-// Megjeleníti egy felhasználó profilját
 async function showProfilePage(userId) {
   const mainContent = document.getElementById('main-content');
   const profileContainer = document.getElementById('profile-page-container');
 
-  // Oldal váltása
   mainContent.classList.add('hidden');
   profileContainer.classList.remove('hidden');
   profileContainer.innerHTML = '<p class="text-center text-lg p-10">Profil betöltése...</p>';
-  window.scrollTo(0, 0); // Ugrás az oldal tetejére
+  window.scrollTo(0, 0); 
 
   try {
     const { data: { session } } = await supa.auth.getSession();
     const currentUserId = session?.user?.id;
     const isOwnProfile = userId === currentUserId;
 
-    // 1. Profiladatok lekérése
     const { data: profile, error: profileError } = await supa
       .from('profiles')
       .select('username, bio, avatar_url')
@@ -505,7 +499,6 @@ async function showProfilePage(userId) {
 
     if (profileError) throw profileError;
     
-    // 2. A felhasználó hirdetéseinek lekérése
     const { data: ads, error: adsError } = await supa
       .from('hirdetesek')
       .select('*')
@@ -514,9 +507,8 @@ async function showProfilePage(userId) {
 
     if (adsError) throw adsError;
     
-    // 3. Profiloldal kirajzolása
     const username = profile.username ? profile.username.split('@')[0] : 'Névtelen';
-    const avatar = profile.avatar_url || 'https://via.placeholder.com/150'; // Alapértelmezett avatar
+    const avatar = profile.avatar_url || 'https://via.placeholder.com/150'; 
     
     let adsHtml = '<h3 class="text-2xl font-semibold mb-4">Eladó hirdetései</h3>';
     if (ads.length === 0) {
@@ -544,12 +536,10 @@ async function showProfilePage(userId) {
       adsHtml += '</div>';
     }
 
-    // "Profil szerkesztése" gomb, ha a saját profilját nézi
     const editButtonHtml = isOwnProfile 
       ? `<button id="edit-profile-btn" class="bg-violet-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-violet-700">Profil szerkesztése</button>`
       : '';
 
-    // A teljes profiloldal HTML-je
     profileContainer.innerHTML = `
       <div class="bg-white p-6 md:p-8 rounded-lg shadow-lg max-w-5xl mx-auto">
         <button id="back-to-list-btn" class="inline-block text-violet-600 hover:text-violet-800 mb-6">&larr; Vissza a listához</button>
@@ -573,7 +563,6 @@ async function showProfilePage(userId) {
   }
 }
 
-// *** ÚJ FUNKCIÓ: Megjeleníti a profil szerkesztő űrlapot ***
 async function showProfileEditForm() {
   const profileContainer = document.getElementById('profile-page-container');
   profileContainer.innerHTML = '<p class="text-center text-lg p-10">Szerkesztő betöltése...</p>';
@@ -582,7 +571,6 @@ async function showProfileEditForm() {
     const { data: { user } } = await supa.auth.getUser();
     if (!user) throw new Error('Nem vagy bejelentkezve.');
 
-    // Aktuális profiladatok lekérése
     const { data: profile, error } = await supa
       .from('profiles')
       .select('username, bio, avatar_url')
@@ -591,9 +579,8 @@ async function showProfileEditForm() {
     
     if (error) throw error;
     
-    // Alapértelmezett avatar
     const avatar = profile.avatar_url || 'https://via.placeholder.com/150';
-    selectedAvatarFile = null; // Töröljük az előzőleg kiválasztott fájlt
+    selectedAvatarFile = null; 
 
     profileContainer.innerHTML = `
       <div class="bg-white p-6 md:p-8 rounded-lg shadow-lg max-w-2xl mx-auto">
@@ -630,7 +617,6 @@ async function showProfileEditForm() {
       </div>
     `;
 
-    // Eseményfigyelő az új űrlap elemeire
     document.getElementById('avatar-upload').addEventListener('change', handleAvatarPreview);
     document.getElementById('profile-edit-form').addEventListener('submit', handleProfileUpdate);
 
@@ -640,20 +626,17 @@ async function showProfileEditForm() {
   }
 }
 
-// *** ÚJ FUNKCIÓ: Profilkép előnézet ***
 async function handleAvatarPreview(event) {
   const file = event.target.files[0];
   if (!file) return;
 
   const preview = document.getElementById('avatar-preview');
   
-  // Tömörítés
   const options = { maxSizeMB: 0.5, maxWidthOrHeight: 400, useWebWorker: true };
   try {
     const compressedFile = await imageCompression(file, options);
-    selectedAvatarFile = compressedFile; // Elmentjük a tömörített fájlt
+    selectedAvatarFile = compressedFile; 
     
-    // Előnézet frissítése
     const reader = new FileReader();
     reader.onload = (e) => {
       preview.src = e.target.result;
@@ -665,7 +648,6 @@ async function handleAvatarPreview(event) {
   }
 }
 
-// *** ÚJ FUNKCIÓ: Profil mentése ***
 async function handleProfileUpdate(event) {
   event.preventDefault();
   const msg = document.getElementById('profile-edit-msg');
@@ -681,19 +663,19 @@ async function handleProfileUpdate(event) {
   try {
     let avatarUrl = null;
     
-    // 1. Új avatar feltöltése, ha van
     if (selectedAvatarFile) {
-      const filePath = `public/${user.id}/${Date.now()}-${selectedAvatarFile.name}`;
+      // *** JAVÍTÁS: A 'public/' prefix eltávolítva a mappából ***
+      const filePath = `${user.id}/${Date.now()}-${selectedAvatarFile.name}`;
+      
       const { data: uploadData, error: uploadError } = await supa.storage
         .from('avatars')
         .upload(filePath, selectedAvatarFile, {
           cacheControl: '3600',
-          upsert: true // Felülírja a régit, ha ugyanaz a neve (bár az időbélyeg miatt nem lesz az)
+          upsert: true 
         });
         
       if (uploadError) throw uploadError;
       
-      // 2. Publikus URL lekérése
       const { data: publicUrlData } = supa.storage
         .from('avatars')
         .getPublicUrl(uploadData.path);
@@ -701,14 +683,12 @@ async function handleProfileUpdate(event) {
       avatarUrl = publicUrlData.publicUrl;
     }
 
-    // 3. Profiladatok frissítése az adatbázisban
     const updates = {
       username: document.getElementById('username-edit').value.trim(),
       bio: document.getElementById('bio-edit').value.trim(),
       updated_at: new Date()
     };
     
-    // Csak akkor frissítjük az URL-t, ha töltöttünk fel újat
     if (avatarUrl) {
       updates.avatar_url = avatarUrl;
     }
@@ -723,7 +703,6 @@ async function handleProfileUpdate(event) {
     msg.textContent = 'Sikeresen mentve!';
     msg.className = 'text-sm text-green-600';
 
-    // 2 másodperc múlva visszatöltjük a profilt
     setTimeout(() => {
       showProfilePage(user.id);
     }, 2000);
@@ -764,8 +743,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (cancelEditButton) {
       e.preventDefault();
-      const { data: { user } } = supa.auth.getUser();
-      showProfilePage(user.id); // Vissza a profil nézetbe
+      // Mivel a getUser() aszinkron, itt inkább a session-ből vesszük az ID-t
+      supa.auth.getSession().then(({ data: { session } }) => {
+        if (session) showProfilePage(session.user.id);
+      });
     }
   });
 });
