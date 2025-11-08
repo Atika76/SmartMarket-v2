@@ -157,6 +157,7 @@
             <span>Leírás generálása</span>
           </button>
         </div>
+
         <div>
           <label for="category" class="block text-sm font-medium text-gray-700">Kategória *</label>
           <select id="category" required class="mt-1 w-full border border-gray-300 rounded-md shadow-sm p-2">
@@ -169,6 +170,15 @@
             <option value="Szolgáltatás">Szolgáltatás</option>
             <option value="Egyéb">Egyéb</option>
           </select>
+        </div>
+        
+        <div>
+          <label for="zip_code" class="block text-sm font-medium text-gray-700">Irányítószám</label>
+          <input type="text" id="zip_code" placeholder="Pl. 1054" class="mt-1 w-full border border-gray-300 rounded-md shadow-sm p-2">
+        </div>
+        <div>
+          <label for="city" class="block text-sm font-medium text-gray-700">Város *</label>
+          <input type="text" id="city" required placeholder="Pl. Budapest" class="mt-1 w-full border border-gray-300 rounded-md shadow-sm p-2">
         </div>
         <div>
           <label for="price" class="block text-sm font-medium text-gray-700">Ár (Ft)</label>
@@ -203,8 +213,11 @@
     <section id="list-container" class="col-span-1 md:col-span-2">
       <div class="bg-white p-4 rounded-lg shadow-lg mb-6 flex flex-col md:flex-row gap-4 items-center">
         <input type="text" id="q" placeholder="Keresés a hirdetésekben..." class="w-full border border-gray-300 rounded-md p-2">
+        
+        <input type="text" id="filterCity" placeholder="Város..." class="w-full md:w-auto border border-gray-300 rounded-md p-2">
+        
         <select id="filterCategory" class="w-full md:w-auto border border-gray-300 rounded-md p-2">
-          <option value="">Összes</option>
+          <option value="">Összes kat.</option>
           <option value="Jármű">Jármű</option>
           <option value="Ingatlan">Ingatlan</option>
           <option value="Műszaki cikk">Műszaki cikk</option>
