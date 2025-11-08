@@ -38,7 +38,6 @@
       visibility: visible;
     }
     
-    /* *** JAVÍTVA: A galéria mérete 50%-ra csökkentve *** */
     .lightbox-content {
       position: relative;
       max-width: 50vw; /* Kisebb lett (70 -> 50) */
@@ -54,16 +53,21 @@
       object-fit: contain;
       border-radius: 8px;
     }
+    
+    /* *** JAVÍTVA: Az "X" gomb pozíciója a képen belülre került *** */
     .lightbox-close {
       position: absolute;
-      top: -40px;
-      right: -20px;
-      font-size: 3rem;
+      top: 10px; /* Kicsit beljebb felülről */
+      right: 10px; /* Kicsit beljebb jobbról */
+      font-size: 2.5rem; /* Kicsit kisebb, hogy ne lógjon ki annyira */
       color: white;
+      text-shadow: 0 0 5px rgba(0,0,0,0.8); /* Jobban látható a világos képeken */
       cursor: pointer;
       line-height: 1;
       font-weight: bold;
+      z-index: 1001; /* Biztos, hogy a kép felett van */
     }
+
     .lightbox-nav {
       position: absolute;
       top: 50%;
