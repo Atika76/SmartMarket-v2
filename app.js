@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 });
 
-// Lista (MÓDOSÍTVA: Profil adatokkal)
+// Lista (MÓDOSÍTVA: Profil Linkkel)
 async function loadList(){
   const formContainer = document.getElementById('form-container');
   if (window.innerWidth < 768 && formContainer && !formContainer.classList.contains('hidden')) {
@@ -107,7 +107,6 @@ async function loadList(){
   const sort=document.getElementById('sortBy').value;
   const cityFilter = document.getElementById('filterCity').value.trim();
   
-  // *** JAVÍTÁS: Lekérjük a hirdetést ÉS a hozzá tartozó profilt (username) ***
   let query=supa.from('hirdetesek').select(`
     *,
     profiles ( username, avatar_url )
@@ -127,11 +126,6 @@ async function loadList(){
   const isAdmin = currentUserEmail === ADMIN_EMAIL; 
 
   const { data, error }=await query.limit(60);
-  
-  if (error) {
-    console.error("Hiba a hirdetések lekérésekor:", error);
-    // Lehet, hogy a "profiles" RLS nincs jól beállítva?
-  }
   
   const list=document.getElementById('list');
   const empty=document.getElementById('emptyState');
@@ -164,9 +158,12 @@ async function loadList(){
         </button>`;
     }
     
-    // *** ÚJ: Eladó nevének lekérése ***
-    // A 'profiles' egy objektum lesz (az SQL join miatt), vagy null, ha nincs profil
+    // *** JAVÍTVA: Eladó neve kattintható linkké alakítva ***
     const sellerName = ad.profiles?.username ? ad.profiles.username.split('@')[0] : 'Névtelen';
+    const sellerHtml = `
+      <a href="#" class="profile-link font-medium text-gray-800 hover:text-violet-600 hover:underline" data-userid="${ad.user_id}">
+        ${sellerName}
+      </a>`;
 
     list.innerHTML+=`<article class="bg-white rounded shadow overflow-hidden flex flex-col">
       ${imageHtml}
@@ -179,7 +176,7 @@ async function loadList(){
         <p class="text-sm text-gray-600 flex-1">${ad.leiras||''}</p>
         
         <div class="mt-2 text-xs text-gray-500">
-          Eladó: <span class="font-medium text-gray-800">${sellerName}</span>
+          Eladó: ${sellerHtml}
         </div>
         
         <div class="mt-2 font-bold text-violet-700">${price}</div>
@@ -191,7 +188,12 @@ async function loadList(){
 // Keresés és Törlés eseményfigyelői
 document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('searchBtn').addEventListener('click',loadList);
-  ['q','filterCategory','sortBy', 'filterCity'].forEach(id=>document.getElementById(id).addEventListener('change',loadList));
+  ['filterCategory','sortBy'].forEach(id => {
+      if (document.getElementById(id)) {
+          document.getElementById(id).addEventListener('change', loadList);
+      }
+  });
+  
   loadList();
 
   document.getElementById('list').addEventListener('click', async (e) => {
@@ -460,4 +462,119 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+});
+
+// *** ÚJ FUNKCIÓ: PROFIL OLDAL KEZELÉSE ***
+
+// Megjeleníti a főoldalt (lista és űrlap)
+function showMainPage() {
+  document.getElementById('main-content').classList.remove('hidden');
+  document.getElementById('profile-page-container').classList.add('hidden');
+  document.getElementById('profile-page-container').innerHTML = ''; // Kiürítjük a profil oldalt
+  loadList(); // Frissítjük a listát
+}
+
+// Megjeleníti egy felhasználó profilját
+async function showProfilePage(userId) {
+  const mainContent = document.getElementById('main-content');
+  const profileContainer = document.getElementById('profile-page-container');
+
+  // Oldal váltása
+  mainContent.classList.add('hidden');
+  profileContainer.classList.remove('hidden');
+  profileContainer.innerHTML = '<p class="text-center text-lg p-10">Profil betöltése...</p>';
+  window.scrollTo(0, 0); // Ugrás az oldal tetejére
+
+  try {
+    // 1. Profiladatok lekérése
+    const { data: profile, error: profileError } = await supa
+      .from('profiles')
+      .select('username, bio, avatar_url')
+      .eq('id', userId)
+      .single();
+
+    if (profileError) throw profileError;
+    
+    // 2. A felhasználó hirdetéseinek lekérése
+    const { data: ads, error: adsError } = await supa
+      .from('hirdetesek')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (adsError) throw adsError;
+    
+    // 3. Profiloldal kirajzolása
+    const username = profile.username ? profile.username.split('@')[0] : 'Névtelen';
+    const avatar = profile.avatar_url || 'https://via.placeholder.com/150'; // Alapértelmezett avatar
+    
+    let adsHtml = '<h3 class="text-2xl font-semibold mb-4">Eladó hirdetései</h3>';
+    if (ads.length === 0) {
+      adsHtml += '<p class="text-gray-500">Ennek a felhasználónak még nincsenek aktív hirdetései.</p>';
+    } else {
+      // Hasonló kártyákat generálunk, mint a főoldalon, de linkek nélkül
+      adsHtml += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">';
+      ads.forEach(ad => {
+        const coverImage = (ad.kepek && ad.kepek[0]) || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30';
+        const price = ad.ar ? new Intl.NumberFormat('hu-HU').format(ad.ar) + ' Ft' : '–';
+        adsHtml += `
+          <article class="bg-white rounded shadow overflow-hidden flex flex-col">
+            <img src="${coverImage}" class="h-40 w-full object-cover">
+            <div class="p-3 flex-1 flex-col">
+              <div class="text-xs text-violet-700">
+                ${ad.kategoria || ''}
+                <strong class="float-right">${ad.varos || ''}</strong>
+              </div>
+              <h3 class="font-semibold">${ad.cim}</h3>
+              <p class="text-sm text-gray-600 flex-1">${ad.leiras.substring(0, 100)}${ad.leiras.length > 100 ? '...' : ''}</p>
+              <div class="mt-2 font-bold text-violet-700">${price}</div>
+            </div>
+          </article>
+        `;
+      });
+      adsHtml += '</div>';
+    }
+
+    // A teljes profiloldal HTML-je
+    profileContainer.innerHTML = `
+      <div class="bg-white p-6 md:p-8 rounded-lg shadow-lg max-w-5xl mx-auto">
+        <button id="back-to-list-btn" class="inline-block text-violet-600 hover:text-violet-800 mb-6">&larr; Vissza a listához</button>
+        
+        <div class="flex flex-col md:flex-row items-center gap-6 border-b pb-6 mb-6">
+          <img src="${avatar}" alt="Profilkép" class="w-32 h-32 rounded-full object-cover border-4 border-violet-100">
+          <div>
+            <h1 class="text-4xl font-bold">${username}</h1>
+            <p class="text-lg text-gray-600 mt-2">${profile.bio || 'Ez a felhasználó még nem adott meg bemutatkozást.'}</p>
+          </div>
+          </div>
+        
+        ${adsHtml}
+      </div>
+    `;
+    
+  } catch (err) {
+    console.error('Hiba a profiloldal betöltésekor:', err);
+    profileContainer.innerHTML = `<p class="text-center text-lg p-10 text-red-600">Hiba a profil betöltésekor: ${err.message}</p>`;
+  }
+}
+
+// Eseményfigyelő a profil linkekre és a "Vissza" gombra
+document.addEventListener('DOMContentLoaded', () => {
+  document.body.addEventListener('click', (e) => {
+    const profileLink = e.target.closest('.profile-link');
+    const backButton = e.target.closest('#back-to-list-btn');
+
+    if (profileLink) {
+      e.preventDefault();
+      const userId = profileLink.dataset.userid;
+      if (userId) {
+        showProfilePage(userId);
+      }
+    }
+
+    if (backButton) {
+      e.preventDefault();
+      showMainPage();
+    }
+  });
 });
