@@ -648,6 +648,7 @@ async function handleAvatarPreview(event) {
   }
 }
 
+// *** JAVÍTVA: A profilkép feltöltési útvonala ***
 async function handleProfileUpdate(event) {
   event.preventDefault();
   const msg = document.getElementById('profile-edit-msg');
@@ -664,11 +665,11 @@ async function handleProfileUpdate(event) {
     let avatarUrl = null;
     
     if (selectedAvatarFile) {
-      // *** JAVÍTÁS: A 'public/' prefix eltávolítva a mappából ***
+      // *** JAVÍTÁS: A 'public/' prefix eltávolítva. A Supabase-nek a user ID-val kell kezdeni. ***
       const filePath = `${user.id}/${Date.now()}-${selectedAvatarFile.name}`;
       
       const { data: uploadData, error: uploadError } = await supa.storage
-        .from('avatars')
+        .from('avatars') // A profilkép 'avatars' bucket-be megy
         .upload(filePath, selectedAvatarFile, {
           cacheControl: '3600',
           upsert: true 
