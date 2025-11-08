@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 });
 
-// Lista (Helymeghatározással)
+// Lista (MÓDOSÍTVA: Profil adatokkal)
 async function loadList(){
   const formContainer = document.getElementById('form-container');
   if (window.innerWidth < 768 && formContainer && !formContainer.classList.contains('hidden')) {
@@ -107,7 +107,12 @@ async function loadList(){
   const sort=document.getElementById('sortBy').value;
   const cityFilter = document.getElementById('filterCity').value.trim();
   
-  let query=supa.from('hirdetesek').select('*');
+  // *** JAVÍTÁS: Lekérjük a hirdetést ÉS a hozzá tartozó profilt (username) ***
+  let query=supa.from('hirdetesek').select(`
+    *,
+    profiles ( username, avatar_url )
+  `);
+  
   if(q)query=query.or(`cim.ilike.%${q}%,leiras.ilike.%${q}%`);
   if(cat)query=query.eq('kategoria',cat);
   if(cityFilter) query = query.ilike('varos', `%${cityFilter}%`);
@@ -122,6 +127,12 @@ async function loadList(){
   const isAdmin = currentUserEmail === ADMIN_EMAIL; 
 
   const { data, error }=await query.limit(60);
+  
+  if (error) {
+    console.error("Hiba a hirdetések lekérésekor:", error);
+    // Lehet, hogy a "profiles" RLS nincs jól beállítva?
+  }
+  
   const list=document.getElementById('list');
   const empty=document.getElementById('emptyState');
   list.innerHTML='';
@@ -152,6 +163,10 @@ async function loadList(){
           Törlés ${isAdmin && !isOwner ? '(Admin)' : ''}
         </button>`;
     }
+    
+    // *** ÚJ: Eladó nevének lekérése ***
+    // A 'profiles' egy objektum lesz (az SQL join miatt), vagy null, ha nincs profil
+    const sellerName = ad.profiles?.username ? ad.profiles.username.split('@')[0] : 'Névtelen';
 
     list.innerHTML+=`<article class="bg-white rounded shadow overflow-hidden flex flex-col">
       ${imageHtml}
@@ -162,30 +177,23 @@ async function loadList(){
         </div>
         <h3 class="font-semibold">${ad.cim}</h3>
         <p class="text-sm text-gray-600 flex-1">${ad.leiras||''}</p>
+        
+        <div class="mt-2 text-xs text-gray-500">
+          Eladó: <span class="font-medium text-gray-800">${sellerName}</span>
+        </div>
+        
         <div class="mt-2 font-bold text-violet-700">${price}</div>
         ${deleteButtonHtml} 
       </div></article>`;
   });
 }
 
-// *** JAVÍTOTT Kereső Eseményfigyelők ***
+// Keresés és Törlés eseményfigyelői
 document.addEventListener('DOMContentLoaded',()=>{
-  // A "Keresés" gomb kattintásra futtatja a loadList-et
   document.getElementById('searchBtn').addEventListener('click',loadList);
-  
-  // A dropdownok (select) változásra futtatják a loadList-et
-  ['filterCategory','sortBy'].forEach(id => {
-      if (document.getElementById(id)) {
-          document.getElementById(id).addEventListener('change', loadList);
-      }
-  });
+  ['q','filterCategory','sortBy', 'filterCity'].forEach(id=>document.getElementById(id).addEventListener('change',loadList));
+  loadList();
 
-  // A szöveges mezők (q, filterCity) NEM indítanak keresést,
-  // azokat majd a "Keresés" gomb fogja beolvasni.
-  
-  loadList(); // Első lista betöltés
-
-  // Törlés gomb eseményfigyelő
   document.getElementById('list').addEventListener('click', async (e) => {
     if (e.target && e.target.classList.contains('delete-btn')) {
       e.preventDefault();
