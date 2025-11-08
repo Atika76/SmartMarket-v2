@@ -5,6 +5,10 @@ const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // *** Admin email cím ***
 const ADMIN_EMAIL = 'atika.76@windowslive.com';
 
+// *** ÚJ: Képfeltöltő gyűjtő tömb ***
+let selectedFiles = [];
+const MAX_FILES = 5;
+
 // AUTH állapot
 document.addEventListener('DOMContentLoaded', async () => {
   const { data: { session } } = await supa.auth.getSession();
@@ -18,10 +22,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
-// Képfeltöltés (MÓDOSÍTVA 5 KÉPRE)
+// Képfeltöltés (MÁR A "selectedFiles" TÖMBBŐL DOLGOZIK)
 async function uploadImages(files){
   const urls=[];
-  const max=Math.min(files.length, 5); // 5-ös korlát
+  const max=Math.min(files.length, MAX_FILES);
   for(let i=0;i<max;i++){
     const f=files[i];
     const key=`ad-${Date.now()}-${Math.random().toString(36).slice(2)}-${f.name}`;
@@ -33,7 +37,7 @@ async function uploadImages(files){
   return urls;
 }
 
-// Mentés (JAVÍTVA AZ RLS HIBÁRA)
+// Mentés (MÓDOSÍTVA: A "selectedFiles" TÖMBÖT HASZNÁLJA)
 document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('adForm').addEventListener('submit',async(e)=>{
     e.preventDefault();
@@ -45,7 +49,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const price=document.getElementById('price').value?parseInt(document.getElementById('price').value):null;
     const phone=document.getElementById('phone').value.trim()||null;
     const web=document.getElementById('website').value.trim()||null;
-    const files=document.getElementById('images').files;
+    
+    // *** JAVÍTÁS: A "selectedFiles" globális tömböt használja, nem az inputot ***
+    const files = selectedFiles; 
+    
     try{
       const { data: { user } } = await supa.auth.getUser();
       if (!user) {
@@ -53,10 +60,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
       }
       
       let urls=[];
-      if(files.length>0)urls=await uploadImages(files);
+      if(files.length > 0) urls=await uploadImages(files);
       
       const { error } = await supa.from('hirdetesek').insert({ 
-        user_id: user.id, // EZ A LÉNYEG!
+        user_id: user.id, 
         cim:title, 
         leiras:desc, 
         kategoria:cat, 
@@ -68,7 +75,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
       
       if(error)throw error;
       msg.className='text-green-600 text-sm'; msg.textContent='Sikeresen mentve!'; 
-      e.target.reset(); 
+      e.target.reset();
+      
+      // *** ÚJ: ürítjük a fájlgyűjtőt és az előnézetet ***
+      selectedFiles = [];
+      renderFilePreviews();
+      
       loadList();
       
       // Mobilon sikeres mentés után visszavált a listára
@@ -88,7 +100,7 @@ async function loadList(){
   }
 
   const q=document.getElementById('q').value.trim();
-  const cat=document.getElementById('filterCategory').value;
+  const cat=document.getElementById('category').value;
   const sort=document.getElementById('sortBy').value;
   let query=supa.from('hirdetesek').select('*');
   if(q)query=query.or(`cim.ilike.%${q}%,leiras.ilike.%${q}%`);
@@ -136,7 +148,7 @@ async function loadList(){
 
     list.innerHTML+=`<article class="bg-white rounded shadow overflow-hidden flex flex-col">
       ${imageHtml}
-      <div class="p-3 flex-1 flex flex-col">
+      <div class="p-3 flex-1 flex-col">
         <div class="text-xs text-violet-700">${ad.kategoria||''}</div>
         <h3 class="font-semibold">${ad.cim}</h3>
         <p class="text-sm text-gray-600 flex-1">${ad.leiras||''}</p>
@@ -171,36 +183,32 @@ document.addEventListener('DOMContentLoaded',()=>{
   });
 });
 
-// *** JAVÍTVA: Gemini AI (a kulcsszavas segédhez) ***
+// Gemini AI (módosítva a kulcsszavas segédhez)
 document.addEventListener('DOMContentLoaded',()=>{
   const aiBtn=document.getElementById('aiSuggest');
   const aiLoading=document.getElementById('aiLoading');
-  const keywordsInput = document.getElementById('aiKeywords'); // <-- ÚJ: Kulcsszó input
-  const desc = document.getElementById('description'); // <-- Cél: a leírás
+  const keywordsInput = document.getElementById('aiKeywords'); 
+  const desc = document.getElementById('description'); 
   
   aiBtn.addEventListener('click',async()=>{
-    const keywords = keywordsInput.value.trim(); // <-- ÚJ: Kulcsszót olvas
-    if(!keywords){alert('Adj meg kulcsszavakat a generáláshoz!');return;} // <-- ÚJ: Kulcsszót ellenőriz
+    const keywords = keywordsInput.value.trim(); 
+    if(!keywords){alert('Adj meg kulcsszavakat a generáláshoz!');return;} 
     
     aiLoading.classList.remove('hidden');aiBtn.disabled=true;
     try{
-      // ÚJ: A prompt a kulcsszavakat használja
       const prompt = `Írj egy rövid, figyelemfelkeltő magyar hirdetésszöveget. Kulcsszavak: "${keywords}". A válasz csak a hirdetés szövege legyen, cím nélkül.`;
       const res=await fetch(EDGE_FUNCTION_URL,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_ANON_KEY}`},body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})});
       
       if(!res.ok) {
-        // Részletesebb hibakezelés a konzolon
         const errorBody = await res.json().catch(() => ({ error: 'Ismeretlen válasz' }));
         console.error('Gemini API hiba:', errorBody);
         throw new Error(`Gemini API hiba (${res.status})`);
       }
       
       const data=await res.json();
-      
-      // A "text" mezőt várjuk a proxy-tól, ahogy eddig is (vagy a standard választ)
       const txt = data?.text?.trim() || data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
       
-      if(txt)desc.value=txt; // <-- Csak a leírást írja felül
+      if(txt)desc.value=txt; 
       else {
         console.error('Nincs szöveg a Gemini válaszában:', data);
         alert('Nincs válasz a hiba miatt.');
@@ -217,7 +225,6 @@ document.addEventListener('DOMContentLoaded',()=>{
 
 // LIGHTBOX GALÉRIA MŰKÖDÉSE
 document.addEventListener('DOMContentLoaded', () => {
-  // Hozzuk létre a lightbox HTML-t és adjuk a body-hoz
   const lightboxHtml = `
     <div id="lightbox" class="lightbox-overlay">
       <div class="lightbox-content">
@@ -278,7 +285,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Eseményfigyelő a lista elemeire (delegálás)
   adList.addEventListener('click', (e) => {
     if (e.target && e.target.classList.contains('clickable-gallery')) {
       const images = JSON.parse(e.target.dataset.images);
@@ -288,19 +294,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Gomb eseményfigyelők
   btnClose.addEventListener('click', hideLightbox);
   btnPrev.addEventListener('click', showPrev);
   btnNext.addEventListener('click', showNext);
-
-  // Bezárás, ha a háttérre kattintasz
   lightbox.addEventListener('click', (e) => {
     if (e.target === lightbox) {
       hideLightbox();
     }
   });
-
-  // Billentyűzet vezérlés (Esc, balra, jobbra)
   document.addEventListener('keydown', (e) => {
     if (lightbox.classList.contains('visible')) {
       if (e.key === 'Escape') hideLightbox();
@@ -323,12 +324,12 @@ function showMobileView(viewToShow) {
     listContainer.classList.add('hidden');
     formContainer.classList.remove('hidden');
     fab.classList.add('hidden');
-    window.scrollTo(0, 0); // Ugrás az űrlap tetejére
+    window.scrollTo(0, 0); 
   } else { // 'list'
     listContainer.classList.remove('hidden');
     formContainer.classList.add('hidden');
     fab.classList.remove('hidden');
-    loadList(); // Frissítjük a listát, amikor visszatérünk
+    loadList(); 
   }
 }
 
@@ -344,8 +345,75 @@ document.addEventListener('DOMContentLoaded', () => {
     cancelBtn.addEventListener('click', () => showMobileView('list'));
   }
 
-  // Alapértelmezett állapot beállítása betöltéskor
   if (window.innerWidth < 768) {
      showMobileView('list');
+  }
+});
+
+
+// *** ÚJ FUNKCIÓ: Képfeltöltés (egyesével) ***
+
+// Kép-előnézetek kirajzolása
+function renderFilePreviews() {
+  const previewContainer = document.getElementById('image-previews');
+  if (!previewContainer) return;
+  previewContainer.innerHTML = '';
+  
+  selectedFiles.forEach((file, index) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      previewContainer.innerHTML += `
+        <div class="relative group aspect-square">
+          <img src="${e.target.result}" class="w-full h-full object-cover rounded-md border">
+          <button type="button" data-index="${index}" 
+                  class="remove-file-btn absolute -top-2 -right-2 bg-red-600 text-white rounded-full h-6 w-6 flex items-center justify-center text-lg font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                  aria-label="Kép törlése">
+            &times;
+          </button>
+        </div>
+      `;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// Kép hozzáadása a gyűjtőhöz
+function handleFileSelection(event) {
+  const newFiles = Array.from(event.target.files);
+  const totalFiles = selectedFiles.length + newFiles.length;
+
+  if (totalFiles > MAX_FILES) {
+    alert(`Maximum ${MAX_FILES} képet tölthetsz fel.`);
+    event.target.value = ''; // Input kiürítése
+    return;
+  }
+
+  selectedFiles.push(...newFiles);
+  renderFilePreviews();
+  
+  // Input kiürítése, hogy újra lehessen választani (akár ugyanazt is, ha töröltük)
+  event.target.value = ''; 
+}
+
+// Eseményfigyelők a képkezeléshez
+document.addEventListener('DOMContentLoaded', () => {
+  const fileInput = document.getElementById('images');
+  const previewContainer = document.getElementById('image-previews');
+
+  if (fileInput) {
+    fileInput.addEventListener('change', handleFileSelection);
+  }
+
+  if (previewContainer) {
+    // Eseményfigyelő a Törlés gombokra (delegálással)
+    previewContainer.addEventListener('click', (e) => {
+      const targetButton = e.target.closest('.remove-file-btn');
+      if (targetButton) {
+        e.preventDefault();
+        const index = parseInt(targetButton.dataset.index, 10);
+        selectedFiles.splice(index, 1); // Eltávolítás a gyűjtőből
+        renderFilePreviews(); // Újrarajzolás
+      }
+    });
   }
 });
