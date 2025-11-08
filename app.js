@@ -2,10 +2,7 @@ const { SUPABASE_URL, SUPABASE_ANON_KEY, BUCKET, EDGE_FUNCTION_URL } = window.__
 const { createClient } = supabase;
 const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// *** Admin email cím ***
 const ADMIN_EMAIL = 'atika.76@windowslive.com';
-
-// *** Képfeltöltő gyűjtő tömb ***
 let selectedFiles = [];
 const MAX_FILES = 5;
 
@@ -22,7 +19,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
-// Képfeltöltés (a "selectedFiles" tömbből dolgozik)
+// Képfeltöltés (Optimalizálva)
 async function uploadImages(files){
   const urls=[];
   const max=Math.min(files.length, MAX_FILES);
@@ -37,7 +34,7 @@ async function uploadImages(files){
   return urls;
 }
 
-// Mentés (a "selectedFiles" tömböt használja)
+// Mentés (MÓDOSÍTVA: Helymeghatározással)
 document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('adForm').addEventListener('submit',async(e)=>{
     e.preventDefault();
@@ -49,6 +46,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const price=document.getElementById('price').value?parseInt(document.getElementById('price').value):null;
     const phone=document.getElementById('phone').value.trim()||null;
     const web=document.getElementById('website').value.trim()||null;
+    
+    // *** ÚJ MEZŐK OLVASÁSA ***
+    const zip=document.getElementById('zip_code').value.trim()||null;
+    const city=document.getElementById('city').value.trim();
+
+    if (!city) {
+        msg.className='text-red-600 text-sm'; 
+        msg.textContent='Hiba: A Város megadása kötelező!';
+        return; // Leállítjuk a mentést
+    }
+    // *** JAVÍTÁS VÉGE ***
     
     const files = selectedFiles; 
     
@@ -68,17 +76,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
         kategoria:cat, 
         ar:price, 
         telefon:phone, 
-        weboldal:web, 
+        weboldal:web,
+        iranyitoszam: zip, // ÚJ
+        varos: city,       // ÚJ
         kepek:urls 
       });
       
       if(error)throw error;
       msg.className='text-green-600 text-sm'; msg.textContent='Sikeresen mentve!'; 
       e.target.reset();
-      
       selectedFiles = [];
       renderFilePreviews();
-      
       loadList();
       
       if (window.innerWidth < 768) {
@@ -89,7 +97,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 });
 
-// Lista (ADMIN TÖRLÉSSEL és GALÉRIÁVAL)
+// Lista (MÓDOSÍTVA: Helymeghatározással)
 async function loadList(){
   const formContainer = document.getElementById('form-container');
   if (window.innerWidth < 768 && formContainer && !formContainer.classList.contains('hidden')) {
@@ -99,9 +107,17 @@ async function loadList(){
   const q=document.getElementById('q').value.trim();
   const cat=document.getElementById('filterCategory').value;
   const sort=document.getElementById('sortBy').value;
+  
+  // *** ÚJ: Város szűrő olvasása ***
+  const cityFilter = document.getElementById('filterCity').value.trim();
+  
   let query=supa.from('hirdetesek').select('*');
   if(q)query=query.or(`cim.ilike.%${q}%,leiras.ilike.%${q}%`);
   if(cat)query=query.eq('kategoria',cat);
+  
+  // *** ÚJ: Város szűrő alkalmazása ***
+  if(cityFilter) query = query.ilike('varos', `%${cityFilter}%`);
+  
   if(sort==='price_asc')query=query.order('ar',{ascending:true});
   else if(sort==='price_desc')query=query.order('ar',{ascending:false});
   else query=query.order('created_at',{ascending:false});
@@ -146,7 +162,10 @@ async function loadList(){
     list.innerHTML+=`<article class="bg-white rounded shadow overflow-hidden flex flex-col">
       ${imageHtml}
       <div class="p-3 flex-1 flex-col">
-        <div class="text-xs text-violet-700">${ad.kategoria||''}</div>
+        <div class="text-xs text-violet-700">
+          ${ad.kategoria || ''}
+          <strong class="float-right">${ad.varos || ''}</strong>
+        </div>
         <h3 class="font-semibold">${ad.cim}</h3>
         <p class="text-sm text-gray-600 flex-1">${ad.leiras||''}</p>
         <div class="mt-2 font-bold text-violet-700">${price}</div>
@@ -158,10 +177,10 @@ async function loadList(){
 // Keresés és Törlés eseményfigyelői
 document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('searchBtn').addEventListener('click',loadList);
-  ['q','filterCategory','sortBy'].forEach(id=>document.getElementById(id).addEventListener('change',loadList));
-  loadList(); // Első lista betöltés
+  // *** ÚJ: A filterCity mezőt is figyeljük ***
+  ['q','filterCategory','sortBy', 'filterCity'].forEach(id=>document.getElementById(id).addEventListener('change',loadList));
+  loadList();
 
-  // Törlés gomb eseményfigyelő
   document.getElementById('list').addEventListener('click', async (e) => {
     if (e.target && e.target.classList.contains('delete-btn')) {
       e.preventDefault();
@@ -180,12 +199,9 @@ document.addEventListener('DOMContentLoaded',()=>{
   });
 });
 
-// Gemini AI (JAVÍTVA: Ellenőrzés, hogy létezik-e a gomb)
+// Gemini AI (Elrejtve)
 document.addEventListener('DOMContentLoaded',()=>{
   const aiBtn=document.getElementById('aiSuggest');
-  
-  // *** EZ AZ ÚJ ELLENŐRZÉS ***
-  // Csak akkor adjuk hozzá az eseményfigyelőt, ha a gomb létezik (nincs elrejtve)
   if (aiBtn) {
     const aiLoading=document.getElementById('aiLoading');
     const keywordsInput = document.getElementById('aiKeywords'); 
@@ -226,7 +242,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         aiLoading.classList.add('hidden');aiBtn.disabled=false;
       }
     });
-  } // *** Itt ér véget az 'if (aiBtn)' ellenőrzés ***
+  } 
 });
 
 
